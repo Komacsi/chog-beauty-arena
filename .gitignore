@@ -1,0 +1,8 @@
+.env
+node_modules/
+data/*.sqlite*
+data/import-errors.json
+*.log
+artifacts/
+public/vendor/
+public/bundle.js

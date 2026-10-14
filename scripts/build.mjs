@@ -1,0 +1,10 @@
+import {mkdir,copyFile,readFile,writeFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+import {resolve} from 'node:path';
+const root=resolve(import.meta.dirname,'..');
+execFileSync(process.execPath,['scripts/compile.mjs'],{cwd:root,stdio:'inherit'});
+await mkdir(resolve(root,'public/vendor'),{recursive:true});
+await copyFile(resolve(root,'node_modules/ethers/dist/ethers.min.js'),resolve(root,'public/vendor/ethers.js'));
+const app=await readFile(resolve(root,'public/app.js'),'utf8');
+await writeFile(resolve(root,'public/bundle.js'),app.replace("from 'ethers'","from '/vendor/ethers.js'"));
+console.log('Frontend built');

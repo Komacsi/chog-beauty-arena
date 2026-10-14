@@ -1,0 +1,25 @@
+{
+  "name": "chog-beauty-arena",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "compile": "node scripts/compile.mjs",
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "import:nfts": "node --env-file-if-exists=.env scripts/import-nfts.mjs",
+    "test": "node --test",
+    "check": "node --check server.mjs && node --check public/app.js && node --check scripts/import-nfts.mjs"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "ethers": "^6.17.0"
+  },
+  "devDependencies": {
+    "ganache": "^7.9.2",
+    "solc": "^0.8.30"
+  }
+}
