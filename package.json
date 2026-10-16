@@ -10,15 +10,19 @@
     "build": "node scripts/build.mjs",
     "compile": "node scripts/compile.mjs",
     "start": "node --env-file-if-exists=.env server.mjs",
+    "keeper": "node --env-file-if-exists=.env scripts/keeper.mjs",
     "import:nfts": "node --env-file-if-exists=.env scripts/import-nfts.mjs",
     "test": "node --test",
-    "check": "node --check server.mjs && node --check public/app.js && node --check scripts/import-nfts.mjs"
+    "check": "node --check server.mjs && node --check public/app.js && node --check scripts/import-nfts.mjs && node --check scripts/keeper.mjs && node --check lib/keeper.mjs"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",
-    "ethers": "^6.17.0"
+    "drand-client": "^1.2.5",
+    "ethers": "^6.17.0",
+    "tlock-js": "^0.9.0"
   },
   "devDependencies": {
+    "esbuild-wasm": "^0.28.2",
     "ganache": "^7.9.2",
     "solc": "^0.8.30"
   }

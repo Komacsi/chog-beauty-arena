@@ -2,58 +2,39 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseUnits} from 'ethers';
 import * as d from '../lib/demo.mjs';
+import {makeCommitment,makeSalt,DEMO_ARENA} from '../lib/commitments.mjs';
 const units=n=>parseUnits(String(n),18);
-function fixture(){const state=d.createState();const round=d.startRound(state,[{tokenId:1},{tokenId:2}],0);return {state,round};}
-test('one vote per wallet, stake does not increase voting power',()=>{
-  const {state,round}=fixture();d.vote(state,'a',0,units(100),1);d.vote(state,'b',1,units(1),1);
-  assert.equal(round.votesA,1);assert.equal(round.votesB,1);
-  assert.throws(()=>d.vote(state,'a',1,units(2),1),/Already voted/);
+function fixture(){
+  const state=d.createState(),now=Date.now(),round=d.startRound(state,[{tokenId:1090},{tokenId:1233}],now),ballots=new Map();
+  function commit(id,side,amount){const ballot={arena:DEMO_ARENA,chainId:143,roundId:round.id,account:d.user(state,id).address,side,tokenId:side?round.nftB:round.nftA,amount:amount.toString(),salt:makeSalt()};d.commitVote(state,id,{commitment:makeCommitment(ballot),sealedChoice:'opaque ciphertext',amount},now);ballots.set(id,ballot);return ballot;}
+  function reveal(id){d.revealVote(state,id,ballots.get(id),round.unlockAt);}
+  function finish(){for(const id of ballots.keys())reveal(id);d.settle(state,round,round.unlockAt);}
+  return {state,round,commit,reveal,finish,ballots,now};
+}
+test('demo stores no plaintext side or salt before opening',()=>{
+  const f=fixture();f.commit('a',1,units(100));const e=f.round.entries.a;assert.equal(e.side,undefined);assert.equal(e.salt,undefined);assert.equal(f.round.poolA,'0');assert.equal(f.round.poolB,'0');assert.equal(f.round.votesA,0);assert.equal(f.round.votesB,0);assert.equal(f.round.totalCommitted,units(100).toString());
 });
-test('holders choose whether to stake; non-holders require a stake',()=>{
-  const {state}=fixture();d.user(state,'visitor').holder=false;
-  assert.throws(()=>d.vote(state,'visitor',0,0n,1),/stake is required/);
-  d.vote(state,'holder',0,0n,1);d.vote(state,'visitor',1,units(10),1);
+test('one participation per wallet; holders choose a stake and non-holders must stake',()=>{
+  const f=fixture();d.user(f.state,'visitor').holder=false;assert.throws(()=>f.commit('visitor',0,0n),/stake is required/);f.commit('holder',0,0n);f.commit('visitor',1,units(5));assert.throws(()=>f.commit('holder',1,units(1)),/Already voted/);
 });
-test('calculate each winner gross payout first, then deduct 1% on claim',()=>{
-  const {state,round}=fixture();d.vote(state,'a',0,units(10),1);d.vote(state,'b',0,units(30),1);d.vote(state,'c',1,units(60),1);
-  assert.throws(()=>d.settle(state,round,2),/active/);
-  d.settle(state,round,86400000);assert.equal(d.payout(round,'a'),units('24.75'));assert.equal(d.payout(round,'b'),units('74.25'));assert.equal(d.payout(round,'c'),0n);assert.equal(BigInt(state.fees),0n);
-  assert.deepEqual(d.payoutBreakdown(round,'a'),{gross:units(25),fee:units('0.25'),amount:units('24.75')});
-  assert.equal(state.points[round.nftA],1);d.settle(state,round,86400000);assert.equal(state.points[round.nftA],1);
-  d.claim(state,round,'a');assert.equal(state.fees,units('0.25').toString());assert.equal(d.payout(round,'a'),0n);assert.throws(()=>d.claim(state,round,'a'),/Nothing/);
-  d.claim(state,round,'b');assert.equal(state.fees,units(1).toString());
+test('early reveals, late commits and mismatched choices are rejected',()=>{
+  const f=fixture(),ballot=f.commit('a',0,units(10));assert.throws(()=>d.revealVote(f.state,'a',ballot,f.now),/Not revealing/);
+  assert.throws(()=>d.commitVote(f.state,'b',{commitment:makeCommitment(ballot),sealedChoice:'opaque',amount:1n},f.round.endsAt),/closed/);
+  assert.throws(()=>d.revealVote(f.state,'a',{...ballot,side:1,tokenId:f.round.nftB},f.round.unlockAt),/mismatch/);f.reveal('a');assert.throws(()=>f.reveal('a'),/Invalid reveal/);
 });
-test('tie refunds every stake in full with no fee or points',()=>{
-  const {state,round}=fixture();d.vote(state,'a',0,units(10),1);d.vote(state,'b',1,units(30),1);d.settle(state,round,86400000);
-  assert.equal(d.payout(round,'a'),units('10'));assert.equal(d.payout(round,'b'),units('30'));assert.equal(state.fees,'0');assert.deepEqual(state.points,{});
+test('gross payout first, then individual 1% fees on claiming',()=>{
+  const f=fixture();f.commit('a',0,units(10));f.commit('b',0,units(30));f.commit('c',1,units(60));f.finish();
+  assert.deepEqual(d.payoutBreakdown(f.round,'a'),{gross:units(25),fee:units('0.25'),amount:units('24.75')});assert.equal(d.payout(f.round,'b'),units('74.25'));assert.equal(d.payout(f.round,'c'),0n);assert.equal(f.state.fees,'0');
+  d.claim(f.state,f.round,'a');d.claim(f.state,f.round,'b');assert.equal(f.state.fees,units(1).toString());assert.throws(()=>d.claim(f.state,f.round,'a'),/Nothing/);assert.equal(f.state.points[f.round.nftA],1);
 });
-test('winner without stakes: full refund without fee; winning NFT gets one point',()=>{
-  const {state,round}=fixture();d.vote(state,'a',0,0n,1);d.vote(state,'b',0,0n,1);d.vote(state,'c',1,units(100),1);d.settle(state,round,86400000);
-  assert.equal(round.refund,true);assert.equal(d.payout(round,'c'),units('100'));assert.equal(state.fees,'0');assert.equal(state.points[round.nftA],1);
+test('ties refund every stake without fees or points',()=>{const f=fixture();f.commit('a',0,units(10));f.commit('b',1,units(30));f.finish();assert.equal(d.payout(f.round,'a'),units(10));assert.equal(d.payout(f.round,'b'),units(30));assert.equal(f.state.fees,'0');assert.deepEqual(f.state.points,{});});
+for(const side of [0,1])test(`one-sided bank with winner ${side} returns each stake in full`,()=>{const f=fixture();f.commit('a',side,units(10));f.commit('b',side,units(30));f.commit('c',1-side,0n);f.finish();assert.equal(d.payout(f.round,'a'),units(10));assert.equal(d.payout(f.round,'b'),units(30));assert.equal(f.state.fees,'0');assert.equal(f.round.winner,side);});
+test('unstaked winners return losing-side stakes without fees',()=>{const f=fixture();f.commit('a',0,0n);f.commit('b',0,0n);f.commit('c',1,units(100));f.finish();assert.equal(d.payout(f.round,'c'),units(100));assert.equal(f.state.points[f.round.nftA],1);});
+test('incomplete opening cancels the entire round and refunds also the unopened stake',()=>{
+  const f=fixture();f.commit('a',0,units(10));f.commit('b',1,units(30));f.reveal('a');assert.throws(()=>d.settle(f.state,f.round,f.round.unlockAt),/incomplete/);d.settle(f.state,f.round,f.round.revealEndsAt);
+  assert.equal(f.round.cancelled,true);assert.deepEqual(f.state.points,{});assert.equal(d.payout(f.round,'a'),units(10));assert.equal(d.payout(f.round,'b'),units(30));assert.equal(f.state.fees,'0');
 });
-for(const side of [0,1])test(`winning side ${side} with the only bank receives full stakes without fees`,()=>{
-  const {state,round}=fixture();d.vote(state,'a',side,units(10),1);d.vote(state,'b',side,units(30),1);d.vote(state,'c',1-side,0n,1);
-  d.settle(state,round,86400000);assert.equal(round.refund,true);assert.equal(round.winner,side);
-  assert.equal(d.payout(round,'a'),units(10));assert.equal(d.payout(round,'b'),units(30));assert.equal(state.fees,'0');
-  assert.equal(state.points[side===0?round.nftA:round.nftB],1);
-  d.claim(state,round,'a');assert.equal(BigInt(state.users.a.balance),units(1000));
-});
-test('side B winners receive stake plus winnings before individual 1% fees',()=>{
-  const {state,round}=fixture();d.vote(state,'a',0,units(60),1);d.vote(state,'b',1,units(10),1);d.vote(state,'c',1,units(30),1);
-  d.settle(state,round,86400000);assert.equal(d.payout(round,'b'),units('24.75'));assert.equal(d.payout(round,'c'),units('74.25'));assert.equal(d.payout(round,'a'),0n);assert.equal(state.fees,'0');
-  d.claim(state,round,'b');d.claim(state,round,'c');assert.equal(state.fees,units(1).toString());
-});
-test('round each gross payout before calculating its fee in smallest token units',()=>{
-  const {state,round}=fixture();d.vote(state,'a',0,1n,1);d.vote(state,'b',0,2n,1);d.vote(state,'c',1,198n,1);d.settle(state,round,86400000);
-  assert.deepEqual(d.payoutBreakdown(round,'a'),{gross:67n,fee:0n,amount:67n});
-  assert.deepEqual(d.payoutBreakdown(round,'b'),{gross:134n,fee:1n,amount:133n});
-  d.claim(state,round,'a');d.claim(state,round,'b');assert.equal(state.fees,'1');
-});
-test('historical settled demo rounds keep recorded payouts without charging twice',()=>{
-  const {state,round}=fixture();d.vote(state,'a',0,units(10),1);d.vote(state,'b',0,units(30),1);d.vote(state,'c',1,units(60),1);d.settle(state,round,86400000);
-  delete round.feeOnClaim;round.distributable=units(99).toString();state.fees=units(1).toString();
-  assert.equal(d.payout(round,'a'),units('24.75'));d.claim(state,round,'a');assert.equal(state.fees,units(1).toString());
-});
-test('expired rounds reject votes and zero-pool settlement is safe',()=>{
-  const {state,round}=fixture();assert.throws(()=>d.vote(state,'a',0,0n,86400000),/closed/);d.settle(state,round,86400000);assert.equal(d.payout(round,'a'),0n);
+test('per-winner rounding differs from deducting a fee from the common pool',()=>{const f=fixture();f.commit('a',0,1n);f.commit('b',0,2n);f.commit('c',1,198n);f.finish();assert.deepEqual(d.payoutBreakdown(f.round,'a'),{gross:67n,fee:0n,amount:67n});assert.deepEqual(d.payoutBreakdown(f.round,'b'),{gross:134n,fee:1n,amount:133n});});
+test('historical settled records keep their recorded payouts and fees',()=>{
+  const f=fixture();f.round.revealEndsAt=undefined;f.round.settled=true;f.round.refund=false;f.round.winner=0;f.round.poolA=units(40).toString();f.round.poolB=units(60).toString();f.round.distributable=units(99).toString();f.round.entries.a={amount:units(10).toString(),side:0,claimed:false};f.state.fees=units(1).toString();assert.equal(d.payout(f.round,'a'),units('24.75'));d.claim(f.state,f.round,'a');assert.equal(f.state.fees,units(1).toString());
 });
