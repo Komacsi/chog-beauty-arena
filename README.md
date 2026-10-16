@@ -37,13 +37,15 @@ The default binds to loopback. Store `.env` locally; copy `.env.example` if conf
 2. One vote per wallet per round; a vote and optional stake are submitted together. Votes cannot switch sides or be topped up.
 3. A free vote proves ownership of a specified NFT. That NFT cannot be reused for another free vote in the same round after a transfer.
 4. The contender with more votes wins, independently of stake sizes.
-5. A 2.5% fee applies to the entire stake pool in every outcome.
+5. A 1% fee applies to the entire pool (stake plus winnings) only when one side wins and both sides have CHOG stakes.
 6. Winners receive `ownStake / totalWinningStake * (totalPool - fee)`. This includes their principal. Losing stakers receive zero in a normal result.
-7. Ties return the remaining pool pro rata to all stakers; neither NFT earns a point.
-8. A winner with no stakes also triggers refunds minus the fee. The winning NFT still earns one point.
+7. Ties return every stake in full, without a fee; neither NFT earns a point.
+8. If either side has no stakes, all stakers receive their own stake back in full, without a fee, regardless of which NFT wins. The winning NFT still earns one point.
 9. Claimants withdraw individually. The treasury withdraws its accrued fees separately. Integer rounding can leave tiny amounts in the contract; there is no admin sweep of participant funds.
 
-Example: A has stakes of 10 and 30 CHOG and two votes, B has a stake of 60 CHOG and one vote. Pool=100, fee=2.5, distributable=97.5. A's participants receive 24.375 and 73.125 CHOG.
+Example: A has stakes of 10 and 30 CHOG and two votes, B has a stake of 60 CHOG and one vote. Pool=100, fee=1, distributable=99. A's participants receive 24.75 and 74.25 CHOG. If B instead has no stakes, A's participants receive exactly 10 and 30 CHOG back and the fee is zero.
+
+New rules apply to newly settled rounds. Previously settled demo records retain their recorded payouts.
 
 ## Addresses / data
 

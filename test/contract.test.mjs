@@ -20,7 +20,7 @@ async function fixture(){
   for(let i=0;i<5;i++){await(await token.mint(await signers[i].getAddress(),units(1000))).wait();await(await token.connect(signers[i]).approve(await arena.getAddress(),units(1000))).wait();}
   await(await nft.mint(await signers[0].getAddress(),1)).wait();await(await nft.mint(await signers[0].getAddress(),2)).wait();
   await(await arena.startRound(1,2)).wait();
-  const advance=async()=>{await provider.send('evm_increaseTime',[86401]);await provider.send('evm_mine',[]);await(await arena.settle(1)).wait();};
+  const advance=async(id=1)=>{await provider.send('evm_increaseTime',[86401]);await provider.send('evm_mine',[]);await(await arena.settle(id)).wait();};
   const close=async()=>{provider.destroy();await transport.disconnect();};
   return {provider,signers,token,nft,arena,advance,close};
 }
@@ -32,11 +32,13 @@ test('contract: stake-weight independent votes, proportional payout, fees and du
     await assert.rejects(f.arena.connect(f.signers[1]).vote.staticCall(1,1,units(5),0));
     await assert.rejects(f.arena.settle.staticCall(1));
     await assert.rejects(f.arena.startRound.staticCall(1,2));
-    await f.advance();assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),units('24.375'));
-    assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),units('73.125'));assert.equal(await f.arena.points(1),1n);
+    await f.advance();assert.equal(await f.arena.FEE_BPS(),100n);assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),units('24.75'));
+    assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),units('74.25'));assert.equal(await f.arena.points(1),1n);
+    await assert.rejects(f.arena.settle.staticCall(1));
     await(await f.arena.connect(f.signers[1]).claim(1)).wait();await assert.rejects(f.arena.connect(f.signers[1]).claim.staticCall(1));
     await assert.rejects(f.arena.withdrawFees.staticCall());
-    await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();assert.equal(await f.token.balanceOf(await f.signers[5].getAddress()),units('2.5'));
+    await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();assert.equal(await f.token.balanceOf(await f.signers[5].getAddress()),units('1'));
+    await(await f.arena.connect(f.signers[2]).claim(1)).wait();assert.equal(await f.token.balanceOf(await f.arena.getAddress()),0n);
     await assert.rejects(f.arena.connect(f.signers[4]).vote.staticCall(1,0,units(1),0));
   }finally{await f.close();}
 });
@@ -47,14 +49,27 @@ test('contract: holders vote free, NFT cannot be reused after transfer, non-hold
     await(await f.nft.transferFrom(await f.signers[0].getAddress(),await f.signers[1].getAddress(),1)).wait();
     await assert.rejects(f.arena.connect(f.signers[1]).vote.staticCall(1,0,0,1));
     await(await f.arena.connect(f.signers[2]).vote(1,1,units(20),0)).wait();
-    await f.advance();assert.equal((await f.arena.getRound(1)).refund,true);assert.equal(await f.arena.points(1),0n);assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),units('19.5'));
+    await f.advance();assert.equal((await f.arena.getRound(1)).refund,true);assert.equal(await f.arena.points(1),0n);assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),units('20'));assert.equal(await f.arena.treasuryCredit(),0n);
   }finally{await f.close();}
 });
 test('contract: no winning stake refunds losing stakes and still awards the winning NFT',async()=>{
   const f=await fixture();try{
     await(await f.arena.vote(1,0,0,1)).wait();await(await f.nft.transferFrom(await f.signers[0].getAddress(),await f.signers[1].getAddress(),2)).wait();
     await(await f.arena.connect(f.signers[1]).vote(1,0,0,2)).wait();await(await f.arena.connect(f.signers[2]).vote(1,1,units(100),0)).wait();
-    await f.advance();assert.equal(await f.arena.points(1),1n);assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),units('97.5'));
-    await(await f.arena.connect(f.signers[2]).claim(1)).wait();assert.equal(await f.token.balanceOf(await f.signers[2].getAddress()),units('997.5'));
+    await f.advance();assert.equal(await f.arena.points(1),1n);assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),units('100'));assert.equal(await f.arena.treasuryCredit(),0n);
+    await(await f.arena.connect(f.signers[2]).claim(1)).wait();assert.equal(await f.token.balanceOf(await f.signers[2].getAddress()),units('1000'));
+  }finally{await f.close();}
+});
+test('contract: winning side with the only bank pays no fee in either direction',async()=>{
+  const f=await fixture();try{
+    for(const side of [0,1]){
+      const id=side+1;if(id>1)await(await f.arena.startRound(1,2)).wait();
+      await(await f.arena.connect(f.signers[1]).vote(id,side,units(100),0)).wait();
+      await f.advance(id);const round=await f.arena.getRound(id);
+      assert.equal(round.winner,BigInt(side));assert.equal(round.refund,true);assert.equal(round.distributable,units(100));
+      assert.equal(await f.arena.payout(id,await f.signers[1].getAddress()),units(100));assert.equal(await f.arena.treasuryCredit(),0n);
+      await(await f.arena.connect(f.signers[1]).claim(id)).wait();assert.equal(await f.token.balanceOf(await f.signers[1].getAddress()),units(1000));
+    }
+    assert.equal(await f.arena.points(1),1n);assert.equal(await f.arena.points(2),1n);await assert.rejects(f.arena.connect(f.signers[5]).withdrawFees.staticCall());
   }finally{await f.close();}
 });

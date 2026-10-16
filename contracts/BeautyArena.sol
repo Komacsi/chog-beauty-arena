@@ -13,7 +13,7 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     IERC20 public immutable chog;
     IERC721 public immutable collection;
     address public immutable treasury;
-    uint256 public constant FEE_BPS = 250;
+    uint256 public constant FEE_BPS = 100;
     uint256 public constant DURATION = 24 hours;
     uint256 public currentRoundId;
     uint256 public treasuryCredit;
@@ -74,15 +74,17 @@ contract BeautyArena is Ownable, ReentrancyGuard {
         require(!r.settled, 'Already settled');
         r.settled = true;
         uint256 pool = r.poolA + r.poolB;
-        uint256 fee = Math.mulDiv(pool,FEE_BPS,10000);
-        treasuryCredit += fee;
-        r.distributable = pool - fee;
         if (r.votesA == r.votesB) { r.refund = true; r.winner = 2; }
         else {
             r.winner = r.votesA > r.votesB ? 0 : 1;
             points[r.winner == 0 ? r.nftA : r.nftB]++;
-            r.refund = (r.winner == 0 ? r.poolA : r.poolB) == 0;
+            r.refund = r.poolA == 0 || r.poolB == 0;
         }
+        // Charge only when stakers win the opposing side's tokens.
+        // Ties and one-sided pools return every stake in full.
+        uint256 fee = r.refund ? 0 : Math.mulDiv(pool,FEE_BPS,10000);
+        treasuryCredit += fee;
+        r.distributable = pool - fee;
         emit RoundSettled(id,r.winner,r.refund,fee);
     }
     function payout(uint256 id, address account) public view returns (uint256) {

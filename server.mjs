@@ -4,7 +4,7 @@ import {resolve,extname,sep} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {Contract,JsonRpcProvider,parseUnits} from 'ethers';
-import {COLLECTION,CHOG_TOKEN,CHAIN_ID,RPC_URL} from './lib/config.mjs';
+import {COLLECTION,CHOG_TOKEN,CHAIN_ID,RPC_URL,FEE_BPS} from './lib/config.mjs';
 import * as demo from './lib/demo.mjs';
 const root=import.meta.dirname;
 await mkdir(resolve(root,'data'),{recursive:true});
@@ -51,7 +51,7 @@ const server=http.createServer(async(req,res)=>{
       let id=req.headers.cookie?.match(/(?:^|; )arena_demo=([a-f0-9-]{36})(?:;|$)/)?.[1];
       if(!id){id=randomUUID();res.setHeader('set-cookie',`arena_demo=${id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000`);}
       if(!live)tick();
-      if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,arenaAddress,feeBps:250,nfts,abi:artifact.abi});
+      if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,arenaAddress,feeBps:FEE_BPS,nfts,abi:artifact.abi});
       if(req.method==='GET' && url.pathname==='/api/deployment')return json(res,200,artifact);
       if(req.method==='GET' && url.pathname==='/api/state') {
         const data=live?await readLive():{round:publicRound(state.rounds.at(-1)),history:state.rounds.filter(r=>r.settled).slice(-30).map(publicRound),points:state.points};
