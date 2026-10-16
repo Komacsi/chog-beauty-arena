@@ -1,6 +1,6 @@
 # Chog: Beauty Arena
 
-24-hour beauty contests between two randomly selected Chog Genesis NFTs. One wallet is one vote. NFT holders can vote free or stake CHOG; non-holders must stake. The winning NFT gets one leaderboard point.
+24-hour beauty contests between two randomly selected Chog Genesis NFTs. One wallet is one vote. NFT holders choose whether to participate with or without a stake; non-holders must stake CHOG to participate. Only stakers receive token payouts. The winning NFT gets one leaderboard point.
 
 ## Current version
 
@@ -35,15 +35,15 @@ The default binds to loopback. Store `.env` locally; copy `.env.example` if conf
 
 1. A round closes 24 hours after its onchain start timestamp.
 2. One vote per wallet per round; a vote and optional stake are submitted together. Votes cannot switch sides or be topped up.
-3. A free vote proves ownership of a specified NFT. That NFT cannot be reused for another free vote in the same round after a transfer.
+3. Participation without a stake requires ownership of a specified NFT. That NFT cannot be reused for another unstaked participation in the same round after a transfer.
 4. The contender with more votes wins, independently of stake sizes.
-5. A 1% fee applies to the entire pool (stake plus winnings) only when one side wins and both sides have CHOG stakes.
-6. Winners receive `ownStake / totalWinningStake * (totalPool - fee)`. This includes their principal. Losing stakers receive zero in a normal result.
+5. When both sides have CHOG stakes and one side wins, first calculate each winning staker’s gross payout: `ownStake + floor(ownStake * losingPool / winningPool)`.
+6. Then calculate `fee = floor(grossPayout * 100 / 10000)` and `netPayout = grossPayout - fee` for that participant. Fees accrue to the treasury only when a reward is claimed. Losing stakers receive zero in a normal result.
 7. Ties return every stake in full, without a fee; neither NFT earns a point.
 8. If either side has no stakes, all stakers receive their own stake back in full, without a fee, regardless of which NFT wins. The winning NFT still earns one point.
 9. Claimants withdraw individually. The treasury withdraws its accrued fees separately. Integer rounding can leave tiny amounts in the contract; there is no admin sweep of participant funds.
 
-Example: A has stakes of 10 and 30 CHOG and two votes, B has a stake of 60 CHOG and one vote. Pool=100, fee=1, distributable=99. A's participants receive 24.75 and 74.25 CHOG. If B instead has no stakes, A's participants receive exactly 10 and 30 CHOG back and the fee is zero.
+Example: A has stakes of 10 and 30 CHOG and two votes, B has a stake of 60 CHOG and one vote. First calculate A's gross payouts: 25 and 75 CHOG. Then deduct the individual 1% fees: 0.25 and 0.75 CHOG. Net payouts are 24.75 and 74.25 CHOG. If B instead has no stakes, A's participants receive exactly 10 and 30 CHOG back and the fee is zero.
 
 New rules apply to newly settled rounds. Previously settled demo records retain their recorded payouts.
 
@@ -62,7 +62,7 @@ New rules apply to newly settled rounds. Previously settled demo records retain 
 2. Visit http://localhost:3000/setup, connect your wallet on Monad, and deploy with **Deploy contract with wallet**. You approve and pay for this transaction yourself. The constructor fixes the collection, CHOG token and treasury addresses.
 3. Set the returned address as `ARENA_CONTRACT_ADDRESS` in `.env`, then restart the server.
 4. Connect the deploying wallet and choose **Start next random pair**.
-5. Wallet holders enter an NFT contract token ID for a zero-stake vote. Stakers approve only their exact stake, then submit the voting transaction.
+5. Wallet holders enter an NFT contract token ID for participation without a stake. Stakers approve only their exact stake, then submit the voting transaction.
 6. After 24 hours, anyone can settle the round. The owner starts the next randomly suggested pair. Winners use **Claim reward**; the treasury uses **Withdraw developer fees**.
 
 The prototype uses owner-triggered starts and client/server suggested randomness, not verifiable onchain randomness. It does not run an automatic transaction keeper. Votes/stakes are visible before the deadline, and one-wallet voting does not prevent someone using multiple wallets. Gas is paid even for zero-stake votes. These are known product decisions to revisit before a public money-bearing launch.

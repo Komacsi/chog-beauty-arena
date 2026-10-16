@@ -34,15 +34,18 @@ test('contract: stake-weight independent votes, proportional payout, fees and du
     await assert.rejects(f.arena.startRound.staticCall(1,2));
     await f.advance();assert.equal(await f.arena.FEE_BPS(),100n);assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),units('24.75'));
     assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),units('74.25'));assert.equal(await f.arena.points(1),1n);
+    const details=await f.arena.payoutBreakdown(1,await f.signers[1].getAddress());assert.equal(details.gross,units(25));assert.equal(details.fee,units('0.25'));assert.equal(details.amount,units('24.75'));assert.equal(await f.arena.treasuryCredit(),0n);
     await assert.rejects(f.arena.settle.staticCall(1));
     await(await f.arena.connect(f.signers[1]).claim(1)).wait();await assert.rejects(f.arena.connect(f.signers[1]).claim.staticCall(1));
+    assert.equal(await f.arena.treasuryCredit(),units('0.25'));
     await assert.rejects(f.arena.withdrawFees.staticCall());
+    await(await f.arena.connect(f.signers[2]).claim(1)).wait();assert.equal(await f.arena.treasuryCredit(),units(1));
     await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();assert.equal(await f.token.balanceOf(await f.signers[5].getAddress()),units('1'));
-    await(await f.arena.connect(f.signers[2]).claim(1)).wait();assert.equal(await f.token.balanceOf(await f.arena.getAddress()),0n);
+    assert.equal(await f.token.balanceOf(await f.arena.getAddress()),0n);
     await assert.rejects(f.arena.connect(f.signers[4]).vote.staticCall(1,0,units(1),0));
   }finally{await f.close();}
 });
-test('contract: holders vote free, NFT cannot be reused after transfer, non-holders need stakes',async()=>{
+test('contract: holders can choose no stake, NFT cannot be reused, non-holders need stakes',async()=>{
   const f=await fixture();try{
     await assert.rejects(f.arena.connect(f.signers[1]).vote.staticCall(1,0,0,1));
     await(await f.arena.vote(1,0,0,1)).wait();
@@ -50,6 +53,15 @@ test('contract: holders vote free, NFT cannot be reused after transfer, non-hold
     await assert.rejects(f.arena.connect(f.signers[1]).vote.staticCall(1,0,0,1));
     await(await f.arena.connect(f.signers[2]).vote(1,1,units(20),0)).wait();
     await f.advance();assert.equal((await f.arena.getRound(1)).refund,true);assert.equal(await f.arena.points(1),0n);assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),units('20'));assert.equal(await f.arena.treasuryCredit(),0n);
+  }finally{await f.close();}
+});
+test('contract: individual gross-first rounding and claim-time fees conserve the pool',async()=>{
+  const f=await fixture();try{
+    await(await f.arena.connect(f.signers[1]).vote(1,0,1n,0)).wait();await(await f.arena.connect(f.signers[2]).vote(1,0,2n,0)).wait();await(await f.arena.connect(f.signers[3]).vote(1,1,198n,0)).wait();await f.advance();
+    const a=await f.arena.payoutBreakdown(1,await f.signers[1].getAddress());const b=await f.arena.payoutBreakdown(1,await f.signers[2].getAddress());
+    assert.equal(a.gross,67n);assert.equal(a.fee,0n);assert.equal(a.amount,67n);assert.equal(b.gross,134n);assert.equal(b.fee,1n);assert.equal(b.amount,133n);
+    assert.equal(await f.arena.treasuryCredit(),0n);await(await f.arena.connect(f.signers[1]).claim(1)).wait();await(await f.arena.connect(f.signers[2]).claim(1)).wait();assert.equal(await f.arena.treasuryCredit(),1n);
+    await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();assert.equal(await f.token.balanceOf(await f.arena.getAddress()),0n);assert.equal(await f.token.balanceOf(await f.signers[5].getAddress()),1n);
   }finally{await f.close();}
 });
 test('contract: no winning stake refunds losing stakes and still awards the winning NFT',async()=>{

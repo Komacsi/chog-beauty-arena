@@ -56,7 +56,7 @@ const server=http.createServer(async(req,res)=>{
       if(req.method==='GET' && url.pathname==='/api/state') {
         const data=live?await readLive():{round:publicRound(state.rounds.at(-1)),history:state.rounds.filter(r=>r.settled).slice(-30).map(publicRound),points:state.points};
         const account=live?null:demo.user(state,id);
-        const claims=live?[]:state.rounds.filter(r=>demo.payout(r,id)>0n).map(r=>({id:r.id,amount:demo.payout(r,id).toString()}));
+        const claims=live?[]:state.rounds.filter(r=>demo.payout(r,id)>0n).map(r=>{const p=demo.payoutBreakdown(r,id);return {id:r.id,gross:p.gross.toString(),fee:p.fee.toString(),amount:p.amount.toString()};});
         return json(res,200,{...data,account,claims,entry:live?null:state.rounds.at(-1)?.entries[id] || null,serverNow:Date.now()});
       }
       if(req.method==='GET' && url.pathname==='/api/pair') {

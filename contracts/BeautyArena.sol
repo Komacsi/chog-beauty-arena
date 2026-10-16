@@ -26,13 +26,13 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     mapping(uint256 => Round) public rounds;
     mapping(uint256 => mapping(address => Entry)) public entries;
     mapping(uint256 => uint256) public points;
-    // A free vote consumes a specific NFT's eligibility for this round. This
+    // A vote without a stake consumes a specific NFT's eligibility for this round. This
     // prevents reusing it by transferring it through multiple wallets.
-    mapping(uint256 => mapping(uint256 => bool)) public freeVoteUsed;
+    mapping(uint256 => mapping(uint256 => bool)) public unstakedVoteUsed;
     event RoundStarted(uint256 indexed id, uint256 nftA, uint256 nftB, uint256 endsAt);
     event Voted(uint256 indexed id, address indexed account, uint8 side, uint256 amount);
-    event RoundSettled(uint256 indexed id, uint8 winner, bool refund, uint256 fee);
-    event Claimed(uint256 indexed id, address indexed account, uint256 amount);
+    event RoundSettled(uint256 indexed id, uint8 winner, bool refund);
+    event Claimed(uint256 indexed id, address indexed account, uint256 gross, uint256 fee, uint256 amount);
 
     constructor(address token_, address collection_, address treasury_)
         Ownable(msg.sender) {
@@ -55,8 +55,8 @@ contract BeautyArena is Ownable, ReentrancyGuard {
         require(!e.voted, 'Already voted');
         if (amount == 0) {
             require(collection.ownerOf(holderTokenId) == msg.sender, 'NFT required');
-            require(!freeVoteUsed[id][holderTokenId], 'NFT already used');
-            freeVoteUsed[id][holderTokenId] = true;
+            require(!unstakedVoteUsed[id][holderTokenId], 'NFT already used');
+            unstakedVoteUsed[id][holderTokenId] = true;
         }
         e.voted = true; e.side = side; e.amount = amount;
         if (amount > 0) {
@@ -80,26 +80,32 @@ contract BeautyArena is Ownable, ReentrancyGuard {
             points[r.winner == 0 ? r.nftA : r.nftB]++;
             r.refund = r.poolA == 0 || r.poolB == 0;
         }
-        // Charge only when stakers win the opposing side's tokens.
-        // Ties and one-sided pools return every stake in full.
-        uint256 fee = r.refund ? 0 : Math.mulDiv(pool,FEE_BPS,10000);
-        treasuryCredit += fee;
-        r.distributable = pool - fee;
-        emit RoundSettled(id,r.winner,r.refund,fee);
+        // Keep the gross pool intact; calculate each winner's payout before fees.
+        r.distributable = pool;
+        emit RoundSettled(id,r.winner,r.refund);
+    }
+    function payoutBreakdown(uint256 id, address account) public view returns (uint256 gross, uint256 fee, uint256 amount) {
+        Round storage r = rounds[id]; Entry storage e = entries[id][account];
+        if (!r.settled || e.claimed || e.amount == 0) return (0,0,0);
+        if (r.refund) return (e.amount,0,e.amount);
+        if (e.side != r.winner) return (0,0,0);
+        uint256 winningPool = r.winner == 0 ? r.poolA : r.poolB;
+        uint256 losingPool = r.winner == 0 ? r.poolB : r.poolA;
+        gross = e.amount + Math.mulDiv(e.amount,losingPool,winningPool);
+        fee = Math.mulDiv(gross,FEE_BPS,10000);
+        amount = gross - fee;
     }
     function payout(uint256 id, address account) public view returns (uint256) {
-        Round storage r = rounds[id]; Entry storage e = entries[id][account];
-        if (!r.settled || e.claimed || e.amount == 0) return 0;
-        if (r.refund) return Math.mulDiv(e.amount,r.distributable,r.poolA+r.poolB);
-        if (e.side != r.winner) return 0;
-        return Math.mulDiv(e.amount,r.distributable,r.winner == 0 ? r.poolA : r.poolB);
+        (,,uint256 amount) = payoutBreakdown(id,account);
+        return amount;
     }
     function claim(uint256 id) external nonReentrant {
-        uint256 amount = payout(id,msg.sender);
+        (uint256 gross,uint256 fee,uint256 amount) = payoutBreakdown(id,msg.sender);
         require(amount > 0, 'Nothing to claim');
         entries[id][msg.sender].claimed = true;
+        treasuryCredit += fee;
         chog.safeTransfer(msg.sender,amount);
-        emit Claimed(id,msg.sender,amount);
+        emit Claimed(id,msg.sender,gross,fee,amount);
     }
     function withdrawFees() external nonReentrant {
         require(msg.sender == treasury, 'Treasury only');
