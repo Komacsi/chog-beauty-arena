@@ -14,7 +14,9 @@ test('HTTP flow: empty lobby, profile ownership, cancel, accept, concurrent matc
     let s=await request('state');assert.equal(s.rounds.length,0);assert.equal(s.challenges.length,0);assert.equal(s.ownedTokens.length,5);const a=s.ownedTokens;
     const foreignOrigin=await fetch(base+'/api/challenges/create',{method:'POST',headers:{origin:'https://untrusted.example','content-type':'application/json'},body:JSON.stringify({tokenId:a[0]})});
     assert.equal(foreignOrigin.status,403);assert.equal((await request('state')).challenges.length,0);
-    assert.equal((await fetch(base+'/%2e%2e%5cpackage.json')).status,403);
+    assert.equal((await fetch(base+'/%2e%2e%2fpackage.json')).status,403);
+    // A backslash is a separator on Windows and a literal filename on POSIX.
+    assert.ok([403,404].includes((await fetch(base+'/%2e%2e%5cpackage.json')).status));
     await request('challenges/create',{tokenId:99999},400);await request('challenges/create',{tokenId:a[0]});await request('challenges/create',{tokenId:a[0]},400);assert.equal((await request('state')).rounds.length,0);
     await request('demo/wallet',{persona:'bob'});s=await request('state');const b=s.ownedTokens;assert.equal(b.length,5);await request('challenges/cancel',{id:1},400);
     await request('demo/wallet',{persona:'alice'});await request('challenges/cancel',{id:1});await request('challenges/create',{tokenId:a[0]});await request('demo/wallet',{persona:'bob'});
