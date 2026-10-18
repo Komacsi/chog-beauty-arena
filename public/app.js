@@ -52,7 +52,7 @@ function bindRequests(){
   for(const b of document.querySelectorAll('[data-cancel]'))b.onclick=()=>run(()=>cancelChallenge(Number(b.dataset.cancel)));
   for(const b of document.querySelectorAll('[data-accept]'))b.onclick=()=>run(async()=>{const id=Number(b.dataset.accept),tokenId=Number($('#accept-nft-'+id).value);if(config.mode==='demo')await api('challenges/accept',{id,tokenId});else await(await contract().acceptChallenge(id,tokenId)).wait();toast('Battle started. Voting and stakes are now open for 24 hours.');});
 }
-function outcome(r){return r.cancelled?'Cancelled':r.winner===2?'Tie':(nft(r.winner===0?r.nftA:r.nftB)?.name || 'NFT')+' wins!';}
+function outcome(r){return r.cancelled?'Cancelled':r.winner===2?'Tie':(nft(r.winner===0?r.nftA:r.nftB)?.name || 'NFT')+' won!';}
 function matches(list){return list.length?`<div class="match-list">${list.map(r=>`<a class="match-row" href="/?round=${r.id}"><div class="match-art">${[r.nftA,r.nftB].map(id=>`<img src="${esc(nft(id)?.image || '/nfts/'+id+'.webp')}" alt="Token ${id}">`).join('')}</div><div><strong>${esc(nft(r.nftA)?.name || r.nftA)} vs ${esc(nft(r.nftB)?.name || r.nftB)}</strong><p>Round #${r.id} · ${r.settled?esc(outcome(r)):phase(r)==='commit'?'Voting & stakes open':'Automatic opening'} · ${r.committedCount || 0} participants</p></div><span>View battle ↗</span></a>`).join('')}</div>`:'<div class="empty">No active battles. Accept a request to start one.</div>';}
 function rewards(){
   if(!state.claims?.length)return;
@@ -79,7 +79,7 @@ function resultBanner(r){
   if(r.settled){
     if(r.cancelled){kind='cancelled';title='Round cancelled';description='';visual='<span class="result-symbol" aria-hidden="true">↩</span>';}
     else if(r.winner===2){kind='tie';title="It’s a tie";description=`${r.votesA}–${r.votesB} votes`;visual='<span class="result-symbol" aria-hidden="true">=</span>';}
-    else{kind='winner';const winner=nft(r.winner===0?r.nftA:r.nftB),votes=r.winner===0?[r.votesA,r.votesB]:[r.votesB,r.votesA];title=esc(winner?.name || 'Token #'+(r.winner===0?r.nftA:r.nftB))+' wins!';description=`${votes[0]}–${votes[1]} votes`;if(winner)visual=`<img src="${esc(winner.image)}" alt="${esc(winner.name)}" width="88" height="88">`;}
+    else{kind='winner';const winner=nft(r.winner===0?r.nftA:r.nftB),votes=r.winner===0?[r.votesA,r.votesB]:[r.votesB,r.votesA];title=esc(winner?.name || 'Token #'+(r.winner===0?r.nftA:r.nftB))+' won!';description=`${votes[0]}–${votes[1]} votes`;if(winner)visual=`<img src="${esc(winner.image)}" alt="${esc(winner.name)}" width="88" height="88">`;}
   }
   return `<section class="round-result result-${kind}" aria-labelledby="round-result-title"><div class="result-visual">${visual}</div><div><div class="eyebrow">ROUND #${r.id} · ${r.settled?'FINAL RESULT':'BETTING CLOSED'}</div><h1 id="round-result-title">${title}</h1>${description?`<p>${description}</p>`:''}<a class="result-link" href="/leaderboard">View leaderboard ↗</a></div></section>`;
 }
