@@ -6,6 +6,8 @@
 
 Connect a wallet and open **Profile** to see owned NFTs and create a battle request. The prototype displays only the 10 imported NFTs; it does not fetch all 1969 images. Live ownership is read from the NFT contract, and the arena enforces ownership again in the transaction. Demo mode provides Holder A, Holder B and Non-holder personas with simulated ownership.
 
+The interface uses collection names (for example, CHOG #1760) rather than internal contract token IDs. Token-ID search is available only in the leaderboard. Unstaked live participation automatically uses one of the wallet's imported owned NFTs as its eligibility proof; there is no manual token-ID field. Wallets whose NFTs are outside the ten-item prototype sample can participate with a stake until their NFTs are imported.
+
 - `createChallenge(tokenId)` creates an open request with the caller's NFT. No round, voting or staking starts yet.
 - A different holder calls `acceptChallenge(requestId, ownTokenId)` to start the round. Both NFTs must still belong to the respective participants. The 24-hour deadline is calculated from the acceptance block, irrespective of how long the request waited.
 - The creator may call `cancelChallenge(requestId)` until acceptance. Acceptance closes the request atomically; it cannot be canceled after that.
@@ -13,7 +15,7 @@ Connect a wallet and open **Profile** to see owned NFTs and create a battle requ
 - NFTs stay in their owners' wallets. Transfers remain possible. A transfer before acceptance makes the request stale; anyone can clear it. A transfer during a battle does not change that battle or bypass its NFT lock.
 - Independent pairs can run concurrently. The lobby lists open requests and active battles, each with its own voting page. The keeper processes every unfinished round, including older rounds while newer ones are accepting votes.
 
-The leaderboard records each NFT's total wins, losses and draws, ordered by wins descending (token ID breaks ties). NFTs with no recorded results are hidden; a losses-only or draws-only NFT remains listed. A decisive completed round gives the winner one win and the opponent one loss, including one-sided-bank rounds with refunded stakes. A completed tie counts as one draw for both NFTs only when more than one vote was cast in total (for example, 1–1). Empty 0–0 rounds and canceled rounds do not affect records. Existing demo history is backfilled on startup without changing payouts, wins or losses.
+The leaderboard records each NFT's total wins, losses and draws, ordered by wins descending (token ID breaks ties). NFTs with no recorded results are hidden; a losses-only or draws-only NFT remains listed. A decisive completed round gives the winner one win and the opponent one loss, including one-sided-bank rounds with refunded stakes. A completed draw counts as one draw for both NFTs only when more than one vote was cast in total (for example, 1–1). Empty 0–0 rounds and canceled rounds do not affect records. Existing demo history is backfilled on startup without changing payouts, wins or losses.
 
 ## Encrypted choices and automatic opening
 
@@ -42,7 +44,7 @@ fee   = floor(gross * 100 / 10000)
 net   = gross - fee
 ```
 
-Fees accrue only when the participant claims. The treasury withdraws its accrued fees separately. Ties, one-sided pools and cancelled rounds return each stake in full without fees. Refunds for one-sided pools do not erase a valid winning NFT's point. Integer rounding may leave tiny residual amounts; there is no owner function to sweep participant funds.
+Fees accrue only when the participant claims. The treasury withdraws its accrued fees separately. Draws, one-sided pools and cancelled rounds return each stake in full without fees. Refunds for one-sided pools do not erase a valid winning NFT's point. Integer rounding may leave tiny residual amounts; there is no owner function to sweep participant funds.
 
 Example: winning stakes 10 and 30, losing pool 60 CHOG. Gross payouts are 25 and 75; fees are 0.25 and 0.75; net payouts are 24.75 and 74.25 CHOG. A winning holder who participated without a stake gets an NFT voting result, but no token payout.
 
