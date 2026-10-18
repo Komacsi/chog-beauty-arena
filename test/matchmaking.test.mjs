@@ -20,3 +20,10 @@ test('independent pairs run concurrently and a settled pair is reusable',()=>{
   const s=fixture();d.createChallenge(s,'a',1);const first=d.acceptChallenge(s,'b',1,2);d.createChallenge(s,'a',3);const second=d.acceptChallenge(s,'b',2,4);
   assert.equal(s.rounds.length,2);d.settle(s,first,first.unlockAt);assert.equal(d.tokenAvailable(s,1),true);assert.equal(d.tokenAvailable(s,3),false);assert.equal(second.settled,false);d.createChallenge(s,'a',1);
 });
+
+test('fast demo rounds accept participation for exactly two minutes after acceptance',()=>{
+  const s=fixture();d.createChallenge(s,'a',1,1000);
+  const r=d.acceptChallenge(s,'b',1,2,10000,true);
+  assert.equal(r.endsAt-r.startedAt,120000);
+  assert.ok(r.unlockAt>=r.endsAt+5000);assert.ok(r.unlockAt<r.endsAt+8000);
+});

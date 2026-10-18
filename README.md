@@ -1,32 +1,36 @@
 # Chog: Beauty Arena
 
-24-hour contests between two Chog Genesis NFTs. One wallet is one vote. Holders choose whether to participate with or without a CHOG stake. Non-holders must stake. Only stakers receive token payouts.
+24-hour contests between two Chog Genesis NFTs. One wallet is one vote. Holders choose whether to participate with or without a CHOG bet. Non-holders must place a bet. Only bettors receive token payouts.
 
 ## Holder-created battles and profiles
 
+Any positive bet must be at least **5,000 CHOG**, enforced onchain and in demo/API/UI. Holders can still participate without a bet. The fee remains 1% of each gross winning payout, with no fee on refunds. New demo accounts receive 100,000 fictional CHOG; existing accounts receive a one-time 99,000 CHOG top-up without changing historical matches or claims.
+
+Use `npm run start:demo` to run the simulation independently of any future live address in `.env`. Preserve its `ARENA_STATE_DIR` when restarting; use a separate directory and port for a future live instance.
+
 Connect a wallet and open **Profile** to see owned NFTs and create a battle request. The prototype displays only the 10 imported NFTs; it does not fetch all 1969 images. Live ownership is read from the NFT contract, and the arena enforces ownership again in the transaction. Demo mode provides Holder A, Holder B and Non-holder personas with simulated ownership.
 
-The interface uses collection names (for example, CHOG #1760) rather than internal contract token IDs. Token-ID search is available only in the leaderboard. Unstaked live participation automatically uses one of the wallet's imported owned NFTs as its eligibility proof; there is no manual token-ID field. Wallets whose NFTs are outside the ten-item prototype sample can participate with a stake until their NFTs are imported.
+The interface uses collection names (for example, CHOG #1760) rather than internal contract token IDs. Token-ID search is available only in the leaderboard. Live participation without a bet automatically uses one of the wallet's imported owned NFTs as its eligibility proof; there is no manual token-ID field. Wallets whose NFTs are outside the ten-item prototype sample can participate with a bet until their NFTs are imported.
 
-- `createChallenge(tokenId)` creates an open request with the caller's NFT. No round, voting or staking starts yet.
+- `createChallenge(tokenId)` creates an open request with the caller's NFT. No round, voting or betting starts yet.
 - A different holder calls `acceptChallenge(requestId, ownTokenId)` to start the round. Both NFTs must still belong to the respective participants. The 24-hour deadline is calculated from the acceptance block, irrespective of how long the request waited.
 - The creator may call `cancelChallenge(requestId)` until acceptance. Acceptance closes the request atomically; it cannot be canceled after that.
 - One NFT may be in only one pending request or unsettled battle at a time, across all wallets. Cancellation releases it immediately; settlement releases both battle NFTs. It can then play again.
 - NFTs stay in their owners' wallets. Transfers remain possible. A transfer before acceptance makes the request stale; anyone can clear it. A transfer during a battle does not change that battle or bypass its NFT lock.
 - Independent pairs can run concurrently. The lobby lists open requests and active battles, each with its own voting page. The keeper processes every unfinished round, including older rounds while newer ones are accepting votes.
 
-The leaderboard records each NFT's total wins, losses and draws, ordered by wins descending (token ID breaks ties). NFTs with no recorded results are hidden; a losses-only or draws-only NFT remains listed. A decisive completed round gives the winner one win and the opponent one loss, including one-sided-bank rounds with refunded stakes. A completed draw counts as one draw for both NFTs only when more than one vote was cast in total (for example, 1–1). Empty 0–0 rounds and canceled rounds do not affect records. Existing demo history is backfilled on startup without changing payouts, wins or losses.
+The leaderboard records each NFT's total wins, losses and draws, ordered by wins descending (token ID breaks ties). NFTs with no recorded results are hidden; a losses-only or draws-only NFT remains listed. A decisive completed round gives the winner one win and the opponent one loss, including one-sided-bank rounds with refunded bets. A completed draw counts as one draw for both NFTs only when more than one vote was cast in total (for example, 1–1). Empty 0–0 rounds and canceled rounds do not affect records. Existing demo history is backfilled on startup without changing payouts, wins or losses.
 
 ## Encrypted choices and automatic opening
 
-Choices are encrypted locally using drand quicknet timelock encryption (`tlock-js`). The browser sends only a salted commitment, stake amount and fixed-size encrypted ballot. The server does not hold a decryption key and does not receive the plaintext side or salt during betting.
+Choices are encrypted locally using drand quicknet timelock encryption (`tlock-js`). The browser sends only a salted commitment, bet amount and fixed-size encrypted ballot. The server does not hold a decryption key and does not receive the plaintext side or salt during betting.
 
 1. Another holder accepts an open request with an available NFT they own, starting a fixed NFT pair and a 24-hour betting window.
-2. A participant approves CHOG if needed, then submits `commitVote`. Both staked and unstaked choices are encrypted. The commitment binds the chain, arena address, round, voter, token ID, side, amount and random 256-bit salt.
-3. Wallet addresses, stake amounts and the total deposited pool are public. Neither side totals nor chosen sides are published during acceptance. Padded plaintext prevents ciphertext-length leaks between token IDs of different lengths.
+2. A participant approves CHOG if needed, then submits `commitVote`. Choices with and without bets are encrypted. The commitment binds the chain, arena address, round, voter, token ID, side, amount and random 256-bit salt.
+3. Wallet addresses, bet amounts and the total deposited pool are public. Neither side totals nor chosen sides are published during acceptance. Padded plaintext prevents ciphertext-length leaks between token IDs of different lengths.
 4. The drand unlock time is at least five minutes after acceptance closes, with a one-hour opening window. This margin reduces wall-clock/block-timestamp boundary risks.
 5. A separate keeper fetches a signed drand beacon, verifies it against the pinned production quicknet key, decrypts the onchain ciphertexts and submits `revealVote` transactions. Anyone may relay matching reveals, but rewards always belong to the original participant.
-6. No second participant action is required for opening. Once all choices open, anyone can settle. If opening is incomplete at the deadline, the round is cancelled; all stakes are refundable in full, no fees or NFT points are awarded. Partial tallies never decide the winner.
+6. No second participant action is required for opening. Once all choices open, anyone can settle. If opening is incomplete at the deadline, the round is cancelled; all bets are refundable in full, no fees or NFT points are awarded. Partial tallies never decide the winner.
 
 After closing, choices become publicly readable. This provides pre-close choice privacy, not anonymous transfers or permanent secrecy. Security depends on the drand threshold network not releasing future beacons early. The frontend must also serve the reviewed encryption code. A participant can voluntarily disclose their own choice.
 
@@ -34,9 +38,9 @@ After closing, choices become publicly readable. This provides pre-close choice 
 
 ## Payouts
 
-The contender with more revealed votes wins, regardless of stake sizes. A complete, non-tied winner earns one NFT leaderboard point.
+The contender with more revealed votes wins, regardless of bet amounts. A complete, non-tied winner earns one NFT leaderboard point.
 
-When both sides have stakes, calculate each winning participant separately:
+When both sides have bets, calculate each winning participant separately:
 
 ```text
 gross = ownStake + floor(ownStake * losingPool / winningPool)
@@ -44,9 +48,9 @@ fee   = floor(gross * 100 / 10000)
 net   = gross - fee
 ```
 
-Fees accrue only when the participant claims. The treasury withdraws its accrued fees separately. Draws, one-sided pools and cancelled rounds return each stake in full without fees. Refunds for one-sided pools do not erase a valid winning NFT's point. Integer rounding may leave tiny residual amounts; there is no owner function to sweep participant funds.
+Fees accrue only when the participant claims. The treasury withdraws its accrued fees separately. Draws, one-sided pools and cancelled rounds return each bet in full without fees. Refunds for one-sided pools do not erase a valid winning NFT's point. Integer rounding may leave tiny residual amounts; there is no owner function to sweep participant funds.
 
-Example: winning stakes 10 and 30, losing pool 60 CHOG. Gross payouts are 25 and 75; fees are 0.25 and 0.75; net payouts are 24.75 and 74.25 CHOG. A winning holder who participated without a stake gets an NFT voting result, but no token payout.
+Example: winning bets 10,000 and 30,000, losing pool 60,000 CHOG. Gross payouts are 25,000 and 75,000; fees are 250 and 750; net payouts are 24,750 and 74,250 CHOG. A winning holder who participated without a bet gets an NFT voting result, but no token payout.
 
 ## Run locally
 
@@ -60,7 +64,7 @@ npm start
 
 Open http://localhost:3000. Demo identities, holder roles and balances are simulated, but the timelock cryptography and beacon verification are real. Demo ciphertexts are automatically opened by the server.
 
-Copy `.env.example` to `.env` for optional settings. `DEMO_FAST_ROUNDS=1` makes acceptance last 30 seconds with a five-second unlock margin for local testing; the live contract always uses 24 hours and a five-minute margin. A future beacon cannot be fast-forwarded. An accepted battle cannot be manually canceled; incomplete automatic opening triggers the protocol's full refund at its deadline. `ARENA_STATE_DIR` optionally selects an isolated SQLite state directory.
+Copy `.env.example` to `.env` for optional settings. Demo rounds default to two minutes, followed by a five-second unlock margin. `DEMO_FAST_ROUNDS=0` simulates the 24-hour window instead; the live contract always uses 24 hours and a five-minute margin. A future beacon cannot be fast-forwarded. An accepted battle cannot be manually canceled; incomplete automatic opening triggers the protocol's full refund at its deadline. `ARENA_STATE_DIR` optionally selects an isolated SQLite state directory.
 
 ```sh
 npm run check
@@ -73,7 +77,7 @@ Previously settled demo records retain their recorded payouts. On migration to h
 
 ## Live deployment and keeper
 
-No live deployment or real token transactions have been performed by the agent. This revision requires a newly deployed contract with the holder-matchmaking ABI; older arena deployments are not compatible.
+**Security review: real-funds launch is blocked.** See [SECURITY_REVIEW.md](SECURITY_REVIEW.md). The official server, keeper and setup page reject real-token deployment while the two protocol findings remain unresolved. The guard is not an onchain defense and does not stop a third party from deploying the source. No live deployment or real token transactions have been performed by the agent. This revision requires a newly deployed contract with the holder-matchmaking ABI; older arena deployments are not compatible.
 
 1. Review and test the prototype, including its cancellation/invalid-ciphertext limitation.
 2. Open `/setup`, connect a Monad wallet and deploy the encrypted arena. Deployment costs MON gas. Save the address and deployment block shown in the interface.

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {sealBallot,openBallot,drandClient,unlockSchedule} from '../lib/timelock.mjs';
 const fixture=JSON.parse(await readFile(new URL('./fixtures/drand-round-1.json',import.meta.url),'utf8'));
-const input={arena:'0x0000000000000000000000000000000000000000',chainId:143,roundId:1,account:'0x1111111111111111111111111111111111111111',side:0,tokenId:1090,amount:'100'};
+const input={arena:'0x0000000000000000000000000000000000000000',chainId:143,roundId:1,account:'0x1111111111111111111111111111111111111111',side:0,tokenId:1090,amount:'100',beaconRound:1};
 const client=()=>drandClient(async()=>({ok:true,json:async()=>fixture}));
 test('timelock round-trip verifies a signed production quicknet beacon',async()=>{
   const sealed=await sealBallot(input,1,client());const opened=await openBallot(sealed.sealedChoice,{...input,commitment:sealed.commitment},0,client());assert.equal(opened.side,0);assert.equal(opened.tokenId,1090);
@@ -20,3 +20,15 @@ test('invalid drand signatures cannot decrypt a ballot',async()=>{
   const sealed=await sealBallot(input,1,client());const bad=drandClient(async()=>({ok:true,json:async()=>({...fixture,signature:'00'.repeat(48)})}));await assert.rejects(openBallot(sealed.sealedChoice,{...input,commitment:sealed.commitment},0,bad));
 });
 test('unlock schedule leaves a clock margin after betting closes',()=>{const end=Date.now()+86400000,s=unlockSchedule(end);assert.ok(s.unlockAt>=end+300000);assert.ok(s.unlockAt<end+303000);assert.equal(s.revealEndsAt-s.unlockAt,3600000);});
+
+test('keeper rejects a ciphertext targeting another drand round without making a beacon request',async()=>{
+  const sealed=await sealBallot(input,1,client());let requests=0;
+  const c=drandClient(async()=>{requests++;throw Error('Must not fetch');});
+  await assert.rejects(openBallot(sealed.sealedChoice,{...input,beaconRound:2,commitment:sealed.commitment},0,c),/drand round mismatch/);
+  assert.equal(requests,0);
+});
+
+test('keeper rejects a valid encrypted commitment bound to a different contender NFT',async()=>{
+  const sealed=await sealBallot(input,1,client());
+  await assert.rejects(openBallot(sealed.sealedChoice,{...input,nftA:42,nftB:43,commitment:sealed.commitment},0,client()),/NFT mismatch/);
+});

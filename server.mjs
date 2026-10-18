@@ -4,11 +4,14 @@ import {resolve,extname,sep} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {Contract,JsonRpcProvider,parseUnits} from 'ethers';
-import {COLLECTION,CHOG_TOKEN,CHAIN_ID,RPC_URL,FEE_BPS} from './lib/config.mjs';
+import {COLLECTION,CHOG_TOKEN,CHAIN_ID,RPC_URL,FEE_BPS,MIN_STAKE} from './lib/config.mjs';
 import * as demo from './lib/demo.mjs';
 import {openBallot,drandClient} from './lib/timelock.mjs';
 import {DEMO_ARENA} from './lib/commitments.mjs';
 import {drawTotals} from './lib/leaderboard.mjs';
+import {RELEASE_STATUS,assertLiveReleaseAllowed} from './lib/release.mjs';
+const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
+assertLiveReleaseAllowed(arenaAddress);
 const root=import.meta.dirname;
 const stateDir=process.env.ARENA_STATE_DIR || resolve(root,'data');
 await mkdir(stateDir,{recursive:true});
@@ -22,10 +25,10 @@ try{nfts=JSON.parse(await readFile(resolve(root,'data/collection.json'),'utf8'))
 if(!state.matchmakingVersion){for(const r of state.rounds)if(!r.settled)Object.assign(r,{settled:true,cancelled:true,refund:true,winner:2,feeOnClaim:true,feeBps:FEE_BPS});state.challenges=[];state.ownership={};state.matchmakingVersion=1;save();}
 if(!state.losses){state.losses={};for(const r of state.rounds)if(r.settled && !r.cancelled && [0,1].includes(r.winner)){const loser=r.winner===0?r.nftB:r.nftA;state.losses[loser]=(state.losses[loser] || 0)+1;}save();}
 if(!state.draws){state.draws=drawTotals(state.rounds);save();}
+if(demo.migrateMinimumStake(state))save();
 const artifact=JSON.parse(await readFile(resolve(root,'artifacts/BeautyArena.json'),'utf8'));
-const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
 const live=Boolean(arenaAddress);
-const demoFastRounds=!live && process.env.DEMO_FAST_ROUNDS==='1';
+const demoFastRounds=!live && process.env.DEMO_FAST_ROUNDS!=='0';
 const provider=live?new JsonRpcProvider(RPC_URL,CHAIN_ID,{batchMaxCount:1}):null;
 const arena=live?new Contract(arenaAddress,artifact.abi,provider):null;
 const treasury='0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D';
@@ -56,7 +59,7 @@ function tick(){
     if(!r.settled && now>=(r.unlockAt || r.endsAt)){
       if(r.revealEndsAt && now<r.revealEndsAt){
         for(const [id,e]of Object.entries(r.entries))if(!e.revealed){
-          try{const ballot=await openBallot(e.sealedChoice,{arena:DEMO_ARENA,chainId:CHAIN_ID,roundId:r.id,account:demo.user(state,id).address,amount:e.amount,commitment:e.commitment},r.unlockAt,demoDrand);demo.revealVote(state,id,ballot);}
+          try{const ballot=await openBallot(e.sealedChoice,{arena:DEMO_ARENA,chainId:CHAIN_ID,roundId:r.id,account:demo.user(state,id).address,amount:e.amount,commitment:e.commitment,beaconRound:r.beaconRound,nftA:r.nftA,nftB:r.nftB},r.unlockAt,demoDrand);demo.revealVote(state,id,ballot);}
           catch{r.keeperStatus='Waiting for verified automatic opening';}
         }
       }
@@ -82,8 +85,8 @@ const server=http.createServer(async(req,res)=>{
         id=state.demoAccounts[persona];demo.user(state,id).holder=demo.ownedTokens(state,id).length>0;
       }
       if(!live)await tick();
-      if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,arenaAddress,feeBps:FEE_BPS,nfts,abi:artifact.abi,demoFastRounds,privacy:'timelock'});
-      if(req.method==='GET' && url.pathname==='/api/deployment')return json(res,200,artifact);
+      if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',release:RELEASE_STATUS,collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,arenaAddress,feeBps:FEE_BPS,minStake:MIN_STAKE.toString(),nfts,abi:artifact.abi,demoFastRounds,privacy:'timelock'});
+      if(req.method==='GET' && url.pathname==='/api/deployment')return RELEASE_STATUS.realFundsEnabled?json(res,200,artifact):json(res,403,{error:RELEASE_STATUS.message});
       if(req.method==='GET' && url.pathname==='/api/state') {
         const data=live?await readLive(url.searchParams.get('fresh')==='1'):{rounds:state.rounds.filter(r=>!r.settled).map(publicRound),challenges:state.challenges.filter(c=>!c.closed).map(c=>({...c,valid:state.ownership[c.tokenId]===c.creator})),history:state.rounds.filter(r=>r.settled).map(publicRound),points:state.points,losses:state.losses,draws:state.draws};
         const selected=Number(url.searchParams.get('round'));

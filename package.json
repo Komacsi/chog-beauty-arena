@@ -10,10 +10,11 @@
     "build": "node scripts/build.mjs",
     "compile": "node scripts/compile.mjs",
     "start": "node --env-file-if-exists=.env server.mjs",
+    "start:demo": "node --env-file-if-exists=.env scripts/demo.mjs",
     "keeper": "node --env-file-if-exists=.env scripts/keeper.mjs",
     "import:nfts": "node --env-file-if-exists=.env scripts/import-nfts.mjs",
     "test": "node --test",
-    "check": "node --check server.mjs && node --check public/app.js && node --check scripts/import-nfts.mjs && node --check scripts/keeper.mjs && node --check lib/keeper.mjs"
+    "check": "node --check server.mjs && node --check public/app.js && node --check scripts/import-nfts.mjs && node --check scripts/keeper.mjs && node --check lib/keeper.mjs && node --check lib/timelock.mjs && node --check lib/release.mjs && node --check scripts/demo.mjs"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",
@@ -25,5 +26,8 @@
     "esbuild-wasm": "^0.28.2",
     "ganache": "^7.9.2",
     "solc": "^0.8.30"
+  },
+  "overrides": {
+    "tmp": "0.2.7"
   }
 }

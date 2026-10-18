@@ -12,6 +12,9 @@ test('HTTP flow: empty lobby, profile ownership, cancel, accept, concurrent matc
     const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server timeout')),15000);child.stdout.on('data',d=>{logs+=d;const m=logs.match(/http:\/\/localhost:(\d+)/);if(m){clearTimeout(timer);resolve('http://127.0.0.1:'+m[1]);}});child.once('exit',code=>{clearTimeout(timer);reject(Error('Server exited '+code));});});
     async function request(path,body,expected=200){const response=await fetch(base+'/api/'+path,{method:body===undefined?'GET':'POST',headers:{cookie:[...cookies].map(([k,v])=>k+'='+v).join('; '),...(body===undefined?{}:{'content-type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});for(const c of response.headers.getSetCookie()){const [key,value]=c.split(';')[0].split('=');cookies.set(key,value);}const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));return result;}
     let s=await request('state');assert.equal(s.rounds.length,0);assert.equal(s.challenges.length,0);assert.equal(s.ownedTokens.length,5);const a=s.ownedTokens;
+    const foreignOrigin=await fetch(base+'/api/challenges/create',{method:'POST',headers:{origin:'https://untrusted.example','content-type':'application/json'},body:JSON.stringify({tokenId:a[0]})});
+    assert.equal(foreignOrigin.status,403);assert.equal((await request('state')).challenges.length,0);
+    assert.equal((await fetch(base+'/%2e%2e%5cpackage.json')).status,403);
     await request('challenges/create',{tokenId:99999},400);await request('challenges/create',{tokenId:a[0]});await request('challenges/create',{tokenId:a[0]},400);assert.equal((await request('state')).rounds.length,0);
     await request('demo/wallet',{persona:'bob'});s=await request('state');const b=s.ownedTokens;assert.equal(b.length,5);await request('challenges/cancel',{id:1},400);
     await request('demo/wallet',{persona:'alice'});await request('challenges/cancel',{id:1});await request('challenges/create',{tokenId:a[0]});await request('demo/wallet',{persona:'bob'});
@@ -19,7 +22,10 @@ test('HTTP flow: empty lobby, profile ownership, cancel, accept, concurrent matc
     await request('challenges/create',{tokenId:b[0]},400);await request('challenges/cancel',{id:2},400);await request('demo/cancel',{id:1},404);
     await request('challenges/create',{tokenId:b[1]});await request('demo/wallet',{persona:'alice'});await request('challenges/accept',{id:3,tokenId:a[1]});s=await request('state?round=1');assert.equal(s.rounds.length,2);assert.equal(s.round.id,1);
     await request('demo/wallet',{persona:'visitor'});s=await request('state');assert.equal(s.ownedTokens.length,0);await request('challenges/create',{tokenId:a[2]},400);
-    const payload={commitment:'0x'+'ab'.repeat(32),sealedChoice:'opaque ciphertext',amount:'1'};await request('commit',payload,400);await request('commit',{...payload,roundId:999},400);await request('commit',{...payload,roundId:1});s=await request('state?round=1');assert.equal(s.round.committedCount,1);assert.equal(s.entry.side,undefined);assert.equal(s.rounds.find(r=>r.id===2).committedCount,0);
+    const config=await request('config');assert.equal(config.minStake,'5000000000000000000000');assert.equal(config.release.realFundsEnabled,false);await request('deployment',undefined,403);
+    const payload={commitment:'0x'+'ab'.repeat(32),sealedChoice:'opaque ciphertext',amount:'5000'};await request('commit',payload,400);await request('commit',{...payload,roundId:999},400);
+    await request('commit',{...payload,roundId:1,amount:'4999.999999999999999999'},400);
+    await request('commit',{...payload,roundId:1});s=await request('state?round=1');assert.equal(s.round.committedCount,1);assert.equal(s.entry.side,undefined);assert.equal(s.rounds.find(r=>r.id===2).committedCount,0);
     await request('commit',{...payload,roundId:2,amount:'0'},400);assert.equal((await request('state?round=999')).round,null);
     assert.equal((await fetch(base+'/profile')).status,200);await request('pair',undefined,404);
   }finally{child.kill();await new Promise(resolve=>child.exitCode!==null?resolve():child.once('exit',resolve));await rm(dir,{recursive:true,force:true});}

@@ -13,6 +13,7 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     IERC721 public immutable collection;
     address public immutable treasury;
     uint256 public constant FEE_BPS = 100;
+    uint256 public constant MIN_STAKE = 5_000 * 10 ** 18;
     uint256 public constant DURATION = 24 hours;
     uint256 public constant UNLOCK_DELAY = 5 minutes;
     uint256 public constant REVEAL_DURATION = 1 hours;
@@ -100,6 +101,7 @@ contract BeautyArena is Ownable, ReentrancyGuard {
         require(r.endsAt!=0 && block.timestamp<r.endsAt && !r.settled,'Betting closed');
         require(commitment!=bytes32(0),'Empty commitment');
         require(sealedChoice.length>0 && sealedChoice.length<=4096,'Invalid ciphertext size');
+        require(amount==0 || amount>=MIN_STAKE,'Minimum bet is 5000 CHOG');
         Entry storage e=entries[id][msg.sender]; require(!e.committed,'Already participated');
         if(amount==0){
             require(collection.ownerOf(holderTokenId)==msg.sender,'NFT required');
