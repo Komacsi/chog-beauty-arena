@@ -13,7 +13,7 @@ Connect a wallet and open **Profile** to see owned NFTs and create a battle requ
 - NFTs stay in their owners' wallets. Transfers remain possible. A transfer before acceptance makes the request stale; anyone can clear it. A transfer during a battle does not change that battle or bypass its NFT lock.
 - Independent pairs can run concurrently. The lobby lists open requests and active battles, each with its own voting page. The keeper processes every unfinished round, including older rounds while newer ones are accepting votes.
 
-The leaderboard records each NFT's total wins and losses, ordered by wins descending (token ID breaks ties). NFTs with a 0–0 record are hidden; a losses-only NFT remains listed. A decisive completed round gives the winner one win and the opponent one loss, including one-sided-bank rounds with refunded stakes. Ties and canceled rounds change neither record.
+The leaderboard records each NFT's total wins, losses and draws, ordered by wins descending (token ID breaks ties). NFTs with no recorded results are hidden; a losses-only or draws-only NFT remains listed. A decisive completed round gives the winner one win and the opponent one loss, including one-sided-bank rounds with refunded stakes. A completed tie counts as one draw for both NFTs only when more than one vote was cast in total (for example, 1–1). Empty 0–0 rounds and canceled rounds do not affect records. Existing demo history is backfilled on startup without changing payouts, wins or losses.
 
 ## Encrypted choices and automatic opening
 

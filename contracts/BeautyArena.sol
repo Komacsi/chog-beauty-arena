@@ -37,6 +37,7 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     mapping(uint256 => mapping(address => Entry)) public entries;
     mapping(uint256 => uint256) public points;
     mapping(uint256 => uint256) public losses;
+    mapping(uint256 => uint256) public draws;
     mapping(uint256 => mapping(uint256 => bool)) public unstakedVoteUsed;
     event RoundStarted(uint256 indexed id, uint256 nftA, uint256 nftB, uint256 endsAt, uint256 unlockAt);
     event ChallengeCreated(uint256 indexed id, address indexed creator, uint256 tokenId);
@@ -132,7 +133,7 @@ contract BeautyArena is Ownable, ReentrancyGuard {
         r.settled=true;
         delete tokenRound[r.nftA];delete tokenRound[r.nftB];
         if(r.revealedCount!=r.committedCount){r.cancelled=true;r.refund=true;r.winner=2;}
-        else if(r.votesA==r.votesB){r.refund=true;r.winner=2;}
+        else if(r.votesA==r.votesB){r.refund=true;r.winner=2;if(r.votesA+r.votesB>1){draws[r.nftA]++;draws[r.nftB]++;}}
         else{r.winner=r.votesA>r.votesB?0:1;points[r.winner==0?r.nftA:r.nftB]++;losses[r.winner==0?r.nftB:r.nftA]++;r.refund=r.poolA==0 || r.poolB==0;}
         emit RoundSettled(id,r.winner,r.refund,r.cancelled);
     }

@@ -80,3 +80,15 @@ test('transferring a pending NFT prevents stale acceptance; active lock survives
   await(await f.arena.connect(f.signers[4]).acceptChallenge(3,4)).wait();await(await f.nft.connect(f.signers[1]).transferFrom(await f.signers[1].getAddress(),await f.signers[2].getAddress(),3)).wait();await assert.rejects(f.arena.connect(f.signers[2]).createChallenge.staticCall(3));
   await f.goto((await f.arena.getRound(2)).unlockAt);await(await f.arena.settle(2)).wait();await(await f.arena.connect(f.signers[2]).createChallenge(3)).wait();
 }finally{await f.close();}});
+
+test('draw counters ignore empty/canceled rounds, count 1–1 for both NFTs and cannot double count',async()=>{const f=await fixture();try{
+  await f.finish();assert.equal(await f.arena.draws(1),0n);assert.equal(await f.arena.draws(2),0n);
+  await(await f.arena.createChallenge(1)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(2,2)).wait();
+  await f.commit(1,0,units(10));await f.commit(2,1,units(30));await f.finish();
+  assert.equal(await f.arena.draws(1),1n);assert.equal(await f.arena.draws(2),1n);assert.equal(await f.arena.points(1),0n);assert.equal(await f.arena.losses(2),0n);
+  assert.equal(await f.arena.payout(2,await f.signers[1].getAddress()),units(10));await assert.rejects(f.arena.settle.staticCall(2));assert.equal(await f.arena.draws(1),1n);
+  await(await f.arena.createChallenge(1)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(3,2)).wait();
+  const a=await f.commit(1,0,units(10)),b=await f.commit(2,1,units(30));await f.commit(3,0,units(5));const r=await f.arena.getRound(3);
+  await f.goto(r.unlockAt);await f.reveal(a.b);await f.reveal(b.b);await f.goto(r.revealEndsAt);await(await f.arena.settle(3)).wait();
+  assert.equal((await f.arena.getRound(3)).cancelled,true);assert.equal(await f.arena.draws(1),1n);assert.equal(await f.arena.draws(2),1n);
+}finally{await f.close();}});

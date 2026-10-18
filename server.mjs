@@ -8,6 +8,7 @@ import {COLLECTION,CHOG_TOKEN,CHAIN_ID,RPC_URL,FEE_BPS} from './lib/config.mjs';
 import * as demo from './lib/demo.mjs';
 import {openBallot,drandClient} from './lib/timelock.mjs';
 import {DEMO_ARENA} from './lib/commitments.mjs';
+import {drawTotals} from './lib/leaderboard.mjs';
 const root=import.meta.dirname;
 const stateDir=process.env.ARENA_STATE_DIR || resolve(root,'data');
 await mkdir(stateDir,{recursive:true});
@@ -20,6 +21,7 @@ try{nfts=JSON.parse(await readFile(resolve(root,'data/collection.json'),'utf8'))
 // Retain old demo history/claims, but retire automatically generated unfinished pairs.
 if(!state.matchmakingVersion){for(const r of state.rounds)if(!r.settled)Object.assign(r,{settled:true,cancelled:true,refund:true,winner:2,feeOnClaim:true,feeBps:FEE_BPS});state.challenges=[];state.ownership={};state.matchmakingVersion=1;save();}
 if(!state.losses){state.losses={};for(const r of state.rounds)if(r.settled && !r.cancelled && [0,1].includes(r.winner)){const loser=r.winner===0?r.nftB:r.nftA;state.losses[loser]=(state.losses[loser] || 0)+1;}save();}
+if(!state.draws){state.draws=drawTotals(state.rounds);save();}
 const artifact=JSON.parse(await readFile(resolve(root,'artifacts/BeautyArena.json'),'utf8'));
 const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
 const live=Boolean(arenaAddress);
@@ -44,7 +46,7 @@ async function readLive(fresh=false){
   const collection=new Contract(COLLECTION,['function ownerOf(uint256) view returns(address)'],provider);
   for(let id=1;id<=count;id++){const c=await arena.challenges(id);if(c.closed)continue;let valid=false;try{valid=(await collection.ownerOf(c.tokenId)).toLowerCase()===c.creator.toLowerCase();}catch{}
     challenges.push({id,creator:c.creator,tokenId:Number(c.tokenId),createdAt:Number(c.createdAt)*1000,roundId:Number(c.roundId),closed:false,valid});}
-  liveCache={at:Date.now(),rounds,challenges,history,points,losses}; return liveCache;
+  liveCache={at:Date.now(),rounds,challenges,history,points,losses,draws:drawTotals(history)}; return liveCache;
 }
 const demoDrand=drandClient();let tickInFlight;
 function tick(){
@@ -83,7 +85,7 @@ const server=http.createServer(async(req,res)=>{
       if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,arenaAddress,feeBps:FEE_BPS,nfts,abi:artifact.abi,demoFastRounds,privacy:'timelock'});
       if(req.method==='GET' && url.pathname==='/api/deployment')return json(res,200,artifact);
       if(req.method==='GET' && url.pathname==='/api/state') {
-        const data=live?await readLive(url.searchParams.get('fresh')==='1'):{rounds:state.rounds.filter(r=>!r.settled).map(publicRound),challenges:state.challenges.filter(c=>!c.closed).map(c=>({...c,valid:state.ownership[c.tokenId]===c.creator})),history:state.rounds.filter(r=>r.settled).map(publicRound),points:state.points,losses:state.losses};
+        const data=live?await readLive(url.searchParams.get('fresh')==='1'):{rounds:state.rounds.filter(r=>!r.settled).map(publicRound),challenges:state.challenges.filter(c=>!c.closed).map(c=>({...c,valid:state.ownership[c.tokenId]===c.creator})),history:state.rounds.filter(r=>r.settled).map(publicRound),points:state.points,losses:state.losses,draws:state.draws};
         const selected=Number(url.searchParams.get('round'));
         const round=url.searchParams.get('round')?[...data.rounds,...data.history].find(r=>r.id===selected) || null:data.rounds.at(-1) || null;
         const account=live?null:demo.user(state,id);
