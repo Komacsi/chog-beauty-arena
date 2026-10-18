@@ -1,7 +1,8 @@
 import {BrowserProvider,Contract,ContractFactory,formatUnits,parseUnits,toUtf8Bytes} from 'ethers';
 import {sealBallot} from '../lib/timelock.mjs';
 import {phase,DEMO_ARENA} from '../lib/commitments.mjs';
-let config,state,signer,address='',holder=false,owner=false,busy=false;
+import {leaderboard} from '../lib/leaderboard.mjs';
+let config,state,signer,address='',holder=false,busy=false,owned=[];
 const $=s=>document.querySelector(s);
 const esc=v=>String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=v=>Number(formatUnits(BigInt(v || 0),18)).toLocaleString('en-US',{maximumFractionDigits:3});
@@ -14,15 +15,57 @@ async function connect(){
   if(!window.ethereum)throw Error('Connect an EVM wallet. Demo mode does not require one.');
   const wallet=new BrowserProvider(window.ethereum);await wallet.send('eth_requestAccounts',[]);await wallet.send('wallet_switchEthereumChain',[{chainId:'0x8f'}]);signer=await wallet.getSigner();address=await signer.getAddress();
   holder=(await new Contract(config.collection,['function balanceOf(address) view returns(uint256)'],signer).balanceOf(address))>0n;
-  owner=config.mode==='live' && (await contract().owner()).toLowerCase()===address.toLowerCase();$('#wallet').textContent=address.slice(0,6)+'…'+address.slice(-4);await refresh();
+  $('#wallet').textContent=address.slice(0,6)+'…'+address.slice(-4);await refresh();
 }
 async function refresh(){
-  state=await api('state');
+  const selected=new URLSearchParams(location.search).get('round');
+  state=await api('state?round='+encodeURIComponent(selected || '')+(busy?'&fresh=1':''));
+  owned=config.mode==='demo'?state.ownedTokens:[];
   if(config.mode==='live' && address){
+    const collection=new Contract(config.collection,['function balanceOf(address) view returns(uint256)','function ownerOf(uint256) view returns(address)'],signer);
+    holder=(await collection.balanceOf(address))>0n;
+    const ownership=await Promise.allSettled(config.nfts.map(async n=>({tokenId:n.tokenId,owner:await collection.ownerOf(n.tokenId)})));
+    owned=ownership.filter(x=>x.status==='fulfilled' && x.value.owner.toLowerCase()===address.toLowerCase()).map(x=>x.value.tokenId);
     if(state.round){const e=await contract().entries(state.round.id,address);state.entry=e.committed?{committed:true,revealed:e.revealed,amount:e.amount.toString()}:null;}
     state.claims=[];for(const r of state.history){const p=await contract().payoutBreakdown(r.id,address);if(p.amount>0n)state.claims.push({id:r.id,gross:p.gross.toString(),fee:p.fee.toString(),amount:p.amount.toString()});}
   }
   render();
+}
+const accountAddress=()=>config.mode==='demo'?state.account.address:address;
+const sameAddress=(a,b)=>Boolean(a && b && a.toLowerCase()===b.toLowerCase());
+function occupied(id){return state.challenges.some(c=>c.tokenId===id) || state.rounds.some(r=>r.nftA===id || r.nftB===id);}
+function options(ids){return ids.map(id=>`<option value="${id}">${esc(nft(id)?.name || 'CHOG')} · ID ${id}</option>`).join('');}
+function holderControl(){return `<label class="role" for="holder-id">Owned NFT (if no stake)${owned.length?'<select id="holder-id">'+options(owned)+'</select>':'<input id="holder-id" type="number" min="1" placeholder="Owned contract token ID">'}</label>`;}
+function demoWallet(){return config.mode==='demo'?`<label class="role">Demo wallet<select id="demo-wallet"><option value="alice">Holder A</option><option value="bob">Holder B</option><option value="visitor">Non-holder</option></select></label>`:'';}
+function bindDemoWallet(){if($('#demo-wallet')){$('#demo-wallet').value=state.persona;$('#demo-wallet').onchange=()=>run(()=>api('demo/wallet',{persona:$('#demo-wallet').value}));}}
+async function createChallenge(tokenId){
+  if(config.mode==='live' && !signer)await connect();
+  if(config.mode==='demo')await api('challenges/create',{tokenId});else await(await contract().createChallenge(tokenId)).wait();
+  toast('Battle request created. The 24-hour clock starts when another holder accepts.');
+}
+async function cancelChallenge(id){if(config.mode==='demo')await api('challenges/cancel',{id});else await(await contract().cancelChallenge(id)).wait();toast('Request cancelled. The NFT is available again.');}
+function requests(list){
+  const available=owned.filter(id=>!occupied(id));
+  return list.length?`<div class="request-grid">${list.map(c=>{const n=nft(c.tokenId),mine=sameAddress(c.creator,accountAddress());return `<article class="request-card"><img src="${esc(n?.image || '/nfts/'+c.tokenId+'.webp')}" alt="${esc(n?.name || 'CHOG '+c.tokenId)}"><div><span class="eyebrow">REQUEST #${c.id} · ${c.valid?'WAITING FOR OPPONENT':'OWNERSHIP CHANGED'}</span><h3>${esc(n?.name || 'Token #'+c.tokenId)}</h3><p>Token ID ${c.tokenId} · ${esc(c.creator.slice(0,6)+'…'+c.creator.slice(-4))}</p>${mine || !c.valid?`<button data-cancel="${c.id}">${mine?'Cancel request':'Remove stale request'}</button>`:`<label for="accept-nft-${c.id}">Choose your NFT</label><select id="accept-nft-${c.id}" ${!available.length?'disabled':''}>${available.length?options(available):'<option>No available owned NFT</option>'}</select><button data-accept="${c.id}" ${!available.length?'disabled':''}>Accept & start 24h battle ↗</button>`}</div></article>`;}).join('')}</div>`:'<div class="empty">No open requests yet. Create one from your profile.</div>';
+}
+function bindRequests(){
+  for(const b of document.querySelectorAll('[data-cancel]'))b.onclick=()=>run(()=>cancelChallenge(Number(b.dataset.cancel)));
+  for(const b of document.querySelectorAll('[data-accept]'))b.onclick=()=>run(async()=>{const id=Number(b.dataset.accept),tokenId=Number($('#accept-nft-'+id).value);if(config.mode==='demo')await api('challenges/accept',{id,tokenId});else await(await contract().acceptChallenge(id,tokenId)).wait();toast('Battle started. Voting and stakes are now open for 24 hours.');});
+}
+function matches(list){return list.length?`<div class="match-list">${list.map(r=>`<a class="match-row" href="/?round=${r.id}"><div class="match-art">${[r.nftA,r.nftB].map(id=>`<img src="${esc(nft(id)?.image || '/nfts/'+id+'.webp')}" alt="Token ${id}">`).join('')}</div><div><strong>${esc(nft(r.nftA)?.name || r.nftA)} vs ${esc(nft(r.nftB)?.name || r.nftB)}</strong><p>Round #${r.id} · ${r.settled?'Completed':phase(r)==='commit'?'Voting & stakes open':'Automatic opening'} · ${r.committedCount || 0} participants</p></div><span>View battle ↗</span></a>`).join('')}</div>`:'<div class="empty">No active battles. Accept a request to start one.</div>';}
+function rewards(){
+  if(!state.claims?.length)return;
+  $('#content').insertAdjacentHTML('beforeend',`<section class="history"><h3>Your rewards</h3>${state.claims.map(c=>`<div class="history-item"><span>Round #${c.id} · ${money(c.gross)} − ${money(c.fee)} fee = ${money(c.amount)} CHOG</span><button data-claim="${c.id}">Claim reward</button></div>`).join('')}</section>`);
+  for(const b of document.querySelectorAll('[data-claim]'))b.onclick=()=>run(async()=>{const id=Number(b.dataset.claim);if(config.mode==='demo')await api('claim',{id});else await(await contract().claim(id)).wait();toast('Reward claimed');});
+}
+function renderLobby(){
+  $('#content').innerHTML=`<section class="hero"><div><div class="eyebrow">HOLDER VS HOLDER</div><h1>Your Chog.<br><em>Your challenge.</em></h1><p class="intro">Create a request with your NFT. Another holder brings theirs.<br>Once accepted, the community has 24 hours to vote and stake.</p></div><a class="button-link" href="/profile">Create a battle ↗</a></section><div class="utility-row"><span>One NFT · one open request or active battle at a time</span>${demoWallet()}</div><section class="lobby-section"><div class="section-title"><h2>Open battle requests</h2><span>${state.challenges.length} waiting</span></div>${requests(state.challenges)}</section><section class="lobby-section"><div class="section-title"><h2>Active battles</h2><span>${state.rounds.length} ongoing</span></div>${matches(state.rounds)}</section>${state.history.length?`<section class="lobby-section"><h2>Recent contests</h2>${matches(state.history.slice(-8).reverse())}</section>`:''}`;
+  bindRequests();bindDemoWallet();rewards();
+}
+function renderProfile(){
+  const available=owned.filter(id=>!occupied(id)),mine=state.challenges.filter(c=>sameAddress(c.creator,accountAddress())),myIds=new Set(owned);
+  $('#content').innerHTML=`<section class="hero"><div><div class="eyebrow">YOUR PROFILE</div><h1>Bring your <em>Chog.</em></h1><p class="intro">${accountAddress()?esc(accountAddress()):'Connect your wallet to see your Chog NFTs.'}</p></div>${demoWallet()}</section><p class="vote-note">Prototype: only the 10 imported NFTs are displayed. Ownership is checked again by the contract when creating and accepting a request. NFTs stay in their wallets.</p><section class="create-panel"><h2>Create a battle request</h2><p>Choose an available NFT you own. A different holder can accept with theirs. The 24-hour round starts on acceptance.</p><div class="bet-controls"><div class="field"><label for="create-nft">YOUR AVAILABLE NFT</label><select id="create-nft" ${!available.length?'disabled':''}>${available.length?options(available):'<option>No available owned NFT</option>'}</select></div><button id="create-battle" ${!available.length?'disabled':''}>Confirm & create request ↗</button></div></section><section class="lobby-section"><h2>Your NFTs <span class="muted">(${owned.length})</span></h2>${owned.length?`<div class="owned-grid">${owned.map(id=>{const n=nft(id);return `<article class="owned-card"><img src="${esc(n?.image)}" alt="${esc(n?.name)}"><h3>${esc(n?.name)}</h3><p>Token ID ${id}</p><span class="status-pill">${occupied(id)?'In a request or battle':'Available'}</span></article>`;}).join('')}</div>`:'<div class="empty">No imported Chog NFTs in this wallet. Non-holders can vote by staking in an active battle.</div>'}</section><section class="lobby-section"><h2>Your open requests</h2>${requests(mine)}</section><section class="lobby-section"><h2>Battles with your NFTs</h2>${matches(state.rounds.filter(r=>myIds.has(r.nftA) || myIds.has(r.nftB)))}</section>`;
+  $('#create-battle').onclick=()=>run(()=>createChallenge(Number($('#create-nft').value)));bindRequests();bindDemoWallet();rewards();
 }
 function clock(){
   const r=state?.round;if(!r)return;const p=phase(r),target=p==='commit'?r.endsAt:p==='reveal' || p==='waiting'?r.revealEndsAt:r.endsAt;
@@ -36,15 +79,18 @@ function card(token,side){
   return `<article class="nft-card"><div class="art-wrap"><img src="${esc(token.image)}" alt="${esc(token.name)}"><span class="art-tag">CONTENDER ${side?'B':'A'}</span></div><div class="card-info"><div class="name-row"><div><h2>${esc(token.name)}</h2><div class="token-id">Token ID ${token.tokenId} · Chog Genesis</div></div><span class="trait">${esc(tier)}</span></div><div class="stats"><div><small>VOTES</small><strong>${r.settled?(side?r.votesB:r.votesA):'Sealed'}</strong></div><div><small>SIDE POOL</small><strong>${r.settled?money(side?r.poolB:r.poolA)+' CHOG':'Sealed'}</strong></div><div><small>WINS</small><strong>${state.points[token.tokenId] || 0}</strong></div></div><button class="vote-btn" data-side="${side}" ${closed || !canStake?'disabled':''}>${state.entry?'Choice encrypted':phase(r)!=='commit'?'Betting closed':'Participate without stake'}</button></div></article>`;
 }
 function board(){
-  const q=$('#search').value.toLowerCase(),rows=config.nfts.slice().sort((a,b)=>(state.points[b.tokenId] || 0)-(state.points[a.tokenId] || 0) || a.tokenId-b.tokenId).map((n,i)=>({...n,rank:i+1})).filter(n=>n.name.toLowerCase().includes(q) || String(n.tokenId).includes(q));
-  $('#board').innerHTML=`<table><thead><tr><th>RANK</th><th>CONTENDER</th><th>TOKEN ID</th><th>POINTS</th><th>TRAIT</th><th></th></tr></thead><tbody>${rows.map(n=>`<tr><td class="rank">${n.rank}</td><td><div class="nft-cell"><img src="${esc(n.image)}" alt="${esc(n.name)}" loading="lazy"><strong>${esc(n.name)}</strong></div></td><td>#${n.tokenId}</td><td class="score">${state.points[n.tokenId] || 0}</td><td>${esc(n.attributes.find(a=>a.trait_type==='Tier')?.value || 'Genesis')}</td><td><a href="https://opensea.io/item/monad/${config.collection}/${n.tokenId}" target="_blank" rel="noreferrer">↗</a></td></tr>`).join('') || '<tr><td colspan="6">No matching NFTs</td></tr>'}</tbody></table>`;
+  const q=$('#search').value.toLowerCase(),rows=leaderboard(config.nfts,state.points,state.losses).filter(n=>n.name.toLowerCase().includes(q) || String(n.tokenId).includes(q));
+  $('#board').innerHTML=`<table><thead><tr><th>RANK</th><th>CONTENDER</th><th>TOKEN ID</th><th>WINS</th><th>LOSSES</th><th></th></tr></thead><tbody>${rows.map(n=>`<tr><td class="rank">${n.rank}</td><td><div class="nft-cell"><img src="${esc(n.image)}" alt="${esc(n.name)}" loading="lazy"><strong>${esc(n.name)}</strong></div></td><td>#${n.tokenId}</td><td class="score">${state.points[n.tokenId] || 0}</td><td>${state.losses[n.tokenId] || 0}</td><td><a href="https://opensea.io/item/monad/${config.collection}/${n.tokenId}" target="_blank" rel="noreferrer">↗</a></td></tr>`).join('') || '<tr><td colspan="6">No results yet. NFTs appear after a decisive battle.</td></tr>'}</tbody></table>`;
 }
 function render(){
   const values={};for(const e of document.querySelectorAll('input,select'))if(e.id)values[e.id]=e.value;
+  if(config.mode==='demo')$('#wallet').textContent='Demo profile ↗';
   $('#mode').innerHTML=config.mode==='demo'?`<strong>DEMO MODE</strong> Fictional CHOG · ${config.demoFastRounds?'30-second test rounds':'24-hour rounds'} · choices encrypted until betting closes`:'<strong>LIVE · MONAD</strong> Choices encrypted until betting closes · wallet addresses and stake amounts are public';
-  $('#arena-link').classList.toggle('active',location.pathname==='/');$('#leader-link').classList.toggle('active',location.pathname==='/leaderboard');const content=$('#content');
+  $('#arena-link').classList.toggle('active',location.pathname==='/');$('#leader-link').classList.toggle('active',location.pathname==='/leaderboard');$('#profile-link').classList.toggle('active',location.pathname==='/profile');const content=$('#content');
+  if(location.pathname==='/profile'){renderProfile();return;}
+  if(location.pathname==='/' && !new URLSearchParams(location.search).has('round')){renderLobby();return;}
   if(location.pathname==='/leaderboard'){
-    content.innerHTML=`<div class="board-top"><div><div class="eyebrow">THE COMMUNITY HAS SPOKEN</div><h1>The beauty <em>leaderboard.</em></h1><p class="intro">One win. One point. ${config.nfts.length} prototype NFTs.</p></div><input id="search" aria-label="Search NFTs" placeholder="Search name or token ID…" value="${esc(values.search || '')}"></div><div class="board" id="board"></div>`;$('#search').oninput=board;board();return;
+    content.innerHTML=`<div class="board-top"><div><div class="eyebrow">THE COMMUNITY HAS SPOKEN</div><h1>The beauty <em>leaderboard.</em></h1><p class="intro">Total wins and losses · most wins first.<br>NFTs with a 0–0 record are hidden. Ties and cancelled battles do not affect records.</p></div><input id="search" aria-label="Search NFTs" placeholder="Search name or token ID…" value="${esc(values.search || '')}"></div><div class="board" id="board"></div>`;$('#search').oninput=board;board();return;
   }
   if(location.pathname==='/setup'){
     content.innerHTML=`<section class="setup"><div class="eyebrow">ENCRYPTED ARENA SETUP</div><h1>Launch your <em>arena.</em></h1><p class="intro">Deploy the new time-encrypted contract on Monad. A separate funded keeper process automatically opens choices after closing. Deploying costs MON gas.</p><p class="intro">Treasury: ${esc(config.treasury)}<br>1% deducted after calculating each winning payout. Refunds have no fee.</p><button id="deploy">Deploy contract with wallet</button><div id="deployment-result"></div></section>`;
@@ -53,17 +99,14 @@ function render(){
     return;
   }
   const r=state.round,p=phase(r);
-  content.innerHTML=`<section class="hero"><div><div class="eyebrow">THE SEALED CHOG SHOWDOWN</div><h1>Your choice. <em>Under wraps.</em></h1><p class="intro">Pick your Chog. Your choice is encrypted in your browser.<br>After betting closes, choices open automatically.</p></div>${r?`<div class="timer"><small>${p==='commit'?'BETTING CLOSES IN':'AUTOMATIC OPENING'}</small><strong id="countdown">…</strong></div>`:''}</section>`;
-  if(!r)content.insertAdjacentHTML('beforeend','<div class="empty">The contract owner can start the first round.</div>');
+  content.innerHTML=`<section class="hero"><div><div class="eyebrow">THE SEALED CHOG SHOWDOWN</div><h1>Your choice. <em>Under wraps.</em></h1><p class="intro">Pick your Chog. Your choice is encrypted in your browser.<br>After betting closes, choices open automatically.</p></div>${r && !r.settled?`<div class="timer"><small>${p==='commit'?'BETTING CLOSES IN':'AUTOMATIC OPENING'}</small><strong id="countdown">…</strong></div>`:''}</section>`;
+  if(!r)content.insertAdjacentHTML('beforeend','<div class="empty">Battle not found. <a href="/">Browse battle requests ↗</a></div>');
   else{
-    content.insertAdjacentHTML('beforeend',`<div class="round-bar"><span><span class="live-dot"></span>ROUND #${r.id} · ${p==='commit'?'SEALED BETTING':p==='legacy'?'LEGACY ROUND':p==='settlement'?'FINALIZING':'AUTOMATIC OPENING'}</span><span>${r.committedCount ?? 0} participants · ${money(r.totalCommitted)} CHOG deposited</span></div><section class="battle">${card(nft(r.nftA),0)}<div class="versus">VS</div>${card(nft(r.nftB),1)}</section><p class="vote-note">One wallet = one vote. During betting, the chosen side is encrypted; addresses and stake amounts remain public.</p><section class="bet-panel"><div><h3>Seal your choice.</h3><p>Holders choose participation with or without a stake. Non-holders must stake CHOG. Only stakers receive payouts.<br>Your stake + share of the opposing bank is calculated first; then 1% is deducted. No fees on refunds.<br>No second reveal action is required from you.</p></div><div class="bet-controls"><div class="field"><label for="side">YOUR CONTENDER</label><select id="side"><option value="0">${esc(nft(r.nftA)?.name || 'A')}</option><option value="1">${esc(nft(r.nftB)?.name || 'B')}</option></select></div><div class="field"><label for="amount">STAKE · CHOG</label><input id="amount" type="number" min="0" step="any" value="10" inputmode="decimal"></div><button id="stake" ${state.entry || p!=='commit'?'disabled':''}>Seal stake & choice ↗</button></div></section><div class="utility-row"><span>${config.mode==='demo'?'Demo balance: '+money(state.account.balance)+' CHOG':address?(holder?'Holder · stake optional':'Non-holder · stake required'):'Connect wallet to participate'}</span>${config.mode==='demo'?'<div class="role"><label for="role">Demo role</label><select id="role"><option value="holder">NFT holder</option><option value="visitor">Non-holder</option></select><button id="cancel">Cancel demo & refund</button></div>':'<label class="role">Owned NFT token ID (if no stake)<input id="holder-id" type="number" min="1" placeholder="Token ID"></label>'}</div>`);
-    if(p!=='commit')content.insertAdjacentHTML('beforeend',`<p class="vote-note">${r.keeperStatus || 'Betting is closed. The keeper opens encrypted choices after their scheduled unlock time. If opening is incomplete at the deadline, the round is cancelled and stakes are refunded in full.'}</p>`);
+    content.insertAdjacentHTML('beforeend',`<div class="round-bar"><span><span class="live-dot"></span>ROUND #${r.id} · ${r.settled?'COMPLETED':p==='commit'?'SEALED BETTING':p==='legacy'?'LEGACY ROUND':p==='settlement'?'FINALIZING':'AUTOMATIC OPENING'}</span><span>${r.committedCount ?? 0} participants · ${money(r.totalCommitted)} CHOG deposited</span></div><section class="battle">${card(nft(r.nftA),0)}<div class="versus">VS</div>${card(nft(r.nftB),1)}</section><p class="vote-note">One wallet = one vote. During betting, the chosen side is encrypted; addresses and stake amounts remain public.</p><section class="bet-panel"><div><h3>Seal your choice.</h3><p>Holders choose participation with or without a stake. Non-holders must stake CHOG. Only stakers receive payouts.<br>Your stake + share of the opposing bank is calculated first; then 1% is deducted. No fees on refunds.<br>No second reveal action is required from you.</p></div><div class="bet-controls"><div class="field"><label for="side">YOUR CONTENDER</label><select id="side"><option value="0">${esc(nft(r.nftA)?.name || 'A')}</option><option value="1">${esc(nft(r.nftB)?.name || 'B')}</option></select></div><div class="field"><label for="amount">STAKE · CHOG</label><input id="amount" type="number" min="0" step="any" value="10" inputmode="decimal"></div><button id="stake" ${state.entry || p!=='commit'?'disabled':''}>Seal stake & choice ↗</button></div></section><div class="utility-row"><span>${config.mode==='demo'?'Demo balance: '+money(state.account.balance)+' CHOG':address?(holder?'Holder · stake optional':'Non-holder · stake required'):'Connect wallet to participate'}</span>${config.mode==='demo'?demoWallet():holderControl()}</div>`);
+    if(p!=='commit')content.insertAdjacentHTML('beforeend',`<p class="vote-note">${r.settled?(r.cancelled?'Round cancelled. Full refund.':r.winner===2?'Tie. Full refund.':esc(nft(r.winner===0?r.nftA:r.nftB)?.name || 'Winner')+' wins. Records updated.'):(r.keeperStatus || 'Betting is closed. The keeper opens encrypted choices after their scheduled unlock time. If opening is incomplete at the deadline, the round is cancelled and stakes are refunded in full.')}</p>`);
     for(const b of document.querySelectorAll('[data-side]'))b.onclick=()=>run(()=>cast(Number(b.dataset.side),'0'));
     $('#stake').onclick=()=>run(()=>cast(Number($('#side').value),$('#amount').value));
-    if(config.mode==='demo'){$('#role').value=state.account.holder?'holder':'visitor';$('#role').onchange=()=>run(()=>api('demo/role',{holder:$('#role').value==='holder'}));$('#cancel').onclick=()=>run(()=>api('demo/cancel',{}));}
-  }
-  if(config.mode==='live' && owner && (!r || r.settled)){
-    content.insertAdjacentHTML('beforeend','<div class="utility-row"><button id="start-round">Start next random pair</button></div>');$('#start-round').onclick=()=>run(async()=>{const pair=await api('pair');await(await contract().startRound(pair.a,pair.b)).wait();});
+    if(config.mode==='demo')bindDemoWallet();
   }
   if(config.mode==='live' && address.toLowerCase()===config.treasury.toLowerCase()){
     content.insertAdjacentHTML('beforeend','<div class="utility-row"><button id="fees">Withdraw developer fees</button></div>');$('#fees').onclick=()=>run(async()=>{await(await contract().withdrawFees()).wait();});
@@ -83,10 +126,10 @@ async function cast(side,amountText){
   if(config.mode==='live' && amount===0n && (!Number.isSafeInteger(holderId) || holderId<1))throw Error('Enter a contract token ID you own, or place a stake');
   toast('Encrypting your choice locally…');
   const sealed=await sealBallot({arena:config.arenaAddress || DEMO_ARENA,chainId:config.chainId,roundId:r.id,account,side,tokenId:side===0?r.nftA:r.nftB,amount:amount.toString()},r.beaconRound);
-  if(config.mode==='demo'){await api('commit',{...sealed,amount:amountText});toast('Choice encrypted. It will open automatically after closing.');return;}
+  if(config.mode==='demo'){await api('commit',{...sealed,amount:amountText,roundId:r.id});toast('Choice encrypted. It will open automatically after closing.');return;}
   if(amount>0n){const token=new Contract(config.token,['function allowance(address,address) view returns(uint256)','function approve(address,uint256) returns(bool)'],signer);if(await token.allowance(address,config.arenaAddress)<amount){toast('Approve the exact CHOG stake');await(await token.approve(config.arenaAddress,amount)).wait();}}
   toast('Confirm encrypted participation in your wallet');await(await contract().commitVote(r.id,sealed.commitment,amount,holderId,toUtf8Bytes(sealed.sealedChoice))).wait();toast('Encrypted choice recorded. The keeper handles opening.');
 }
-$('#wallet').onclick=()=>run(connect);
-window.ethereum?.on?.('accountsChanged',()=>{address='';signer=null;holder=false;owner=false;$('#wallet').textContent='Connect wallet ↗';run(refresh);});window.ethereum?.on?.('chainChanged',()=>location.reload());
+$('#wallet').onclick=()=>config.mode==='demo'?location.assign('/profile'):run(connect);
+window.ethereum?.on?.('accountsChanged',()=>{address='';signer=null;holder=false;owned=[];$('#wallet').textContent='Connect wallet ↗';run(refresh);});window.ethereum?.on?.('chainChanged',()=>location.reload());
 try{config=await api('config');await refresh();setInterval(()=>{if(!busy && !['INPUT','SELECT'].includes(document.activeElement.tagName))refresh().catch(e=>toast(e.message));},10000);setInterval(clock,1000);}catch(e){$('#content').innerHTML='<div class="empty">'+esc(e.message)+'</div>';}

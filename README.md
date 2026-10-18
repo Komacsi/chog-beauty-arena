@@ -2,11 +2,24 @@
 
 24-hour contests between two Chog Genesis NFTs. One wallet is one vote. Holders choose whether to participate with or without a CHOG stake. Non-holders must stake. Only stakers receive token payouts.
 
+## Holder-created battles and profiles
+
+Connect a wallet and open **Profile** to see owned NFTs and create a battle request. The prototype displays only the 10 imported NFTs; it does not fetch all 1969 images. Live ownership is read from the NFT contract, and the arena enforces ownership again in the transaction. Demo mode provides Holder A, Holder B and Non-holder personas with simulated ownership.
+
+- `createChallenge(tokenId)` creates an open request with the caller's NFT. No round, voting or staking starts yet.
+- A different holder calls `acceptChallenge(requestId, ownTokenId)` to start the round. Both NFTs must still belong to the respective participants. The 24-hour deadline is calculated from the acceptance block, irrespective of how long the request waited.
+- The creator may call `cancelChallenge(requestId)` until acceptance. Acceptance closes the request atomically; it cannot be canceled after that.
+- One NFT may be in only one pending request or unsettled battle at a time, across all wallets. Cancellation releases it immediately; settlement releases both battle NFTs. It can then play again.
+- NFTs stay in their owners' wallets. Transfers remain possible. A transfer before acceptance makes the request stale; anyone can clear it. A transfer during a battle does not change that battle or bypass its NFT lock.
+- Independent pairs can run concurrently. The lobby lists open requests and active battles, each with its own voting page. The keeper processes every unfinished round, including older rounds while newer ones are accepting votes.
+
+The leaderboard records each NFT's total wins and losses, ordered by wins descending (token ID breaks ties). NFTs with a 0–0 record are hidden; a losses-only NFT remains listed. A decisive completed round gives the winner one win and the opponent one loss, including one-sided-bank rounds with refunded stakes. Ties and canceled rounds change neither record.
+
 ## Encrypted choices and automatic opening
 
 Choices are encrypted locally using drand quicknet timelock encryption (`tlock-js`). The browser sends only a salted commitment, stake amount and fixed-size encrypted ballot. The server does not hold a decryption key and does not receive the plaintext side or salt during betting.
 
-1. The owner starts a round with a fixed NFT pair and a 24-hour acceptance window.
+1. Another holder accepts an open request with an available NFT they own, starting a fixed NFT pair and a 24-hour betting window.
 2. A participant approves CHOG if needed, then submits `commitVote`. Both staked and unstaked choices are encrypted. The commitment binds the chain, arena address, round, voter, token ID, side, amount and random 256-bit salt.
 3. Wallet addresses, stake amounts and the total deposited pool are public. Neither side totals nor chosen sides are published during acceptance. Padded plaintext prevents ciphertext-length leaks between token IDs of different lengths.
 4. The drand unlock time is at least five minutes after acceptance closes, with a one-hour opening window. This margin reduces wall-clock/block-timestamp boundary risks.
@@ -45,7 +58,7 @@ npm start
 
 Open http://localhost:3000. Demo identities, holder roles and balances are simulated, but the timelock cryptography and beacon verification are real. Demo ciphertexts are automatically opened by the server.
 
-Copy `.env.example` to `.env` for optional settings. `DEMO_FAST_ROUNDS=1` makes acceptance last 30 seconds with a five-second unlock margin for local testing; the live contract always uses 24 hours and a five-minute margin. A future beacon cannot be fast-forwarded. **Cancel demo & refund** cancels a demo round; it never pretends to decrypt a future beacon. `ARENA_STATE_DIR` optionally selects an isolated SQLite state directory.
+Copy `.env.example` to `.env` for optional settings. `DEMO_FAST_ROUNDS=1` makes acceptance last 30 seconds with a five-second unlock margin for local testing; the live contract always uses 24 hours and a five-minute margin. A future beacon cannot be fast-forwarded. An accepted battle cannot be manually canceled; incomplete automatic opening triggers the protocol's full refund at its deadline. `ARENA_STATE_DIR` optionally selects an isolated SQLite state directory.
 
 ```sh
 npm run check
@@ -54,18 +67,18 @@ npm run import:nfts           # Only the selected 10 images
 npm run import:nfts -- --full # Explicitly import all 1969
 ```
 
-Previously settled demo records retain their recorded payouts. Runtime databases, local secrets, compiled artifacts and browser bundles are ignored by Git.
+Previously settled demo records retain their recorded payouts. On migration to holder matchmaking, unfinished auto-generated demo pairs are canceled with full refunds; no new random pairs are generated. The initial demo identity remains Holder A so its existing claims remain accessible. Runtime databases, local secrets, compiled artifacts and browser bundles are ignored by Git.
 
 ## Live deployment and keeper
 
-No live deployment or real token transactions have been performed by the agent. This revision requires a newly deployed contract; it is incompatible with the original plaintext-voting ABI.
+No live deployment or real token transactions have been performed by the agent. This revision requires a newly deployed contract with the holder-matchmaking ABI; older arena deployments are not compatible.
 
 1. Review and test the prototype, including its cancellation/invalid-ciphertext limitation.
 2. Open `/setup`, connect a Monad wallet and deploy the encrypted arena. Deployment costs MON gas. Save the address and deployment block shown in the interface.
 3. Set `ARENA_CONTRACT_ADDRESS` and `KEEPER_FROM_BLOCK` in local `.env`.
 4. Configure `KEEPER_PRIVATE_KEY` locally for a separate wallet funded with MON for gas. Never send keys in chat, commit them, or put them in browser code. This wallet has no authority to redirect rewards or withdraw the escrow.
 5. Run `npm start` and, as a separate continuously running process, `npm run keeper`. The keeper scans onchain commitment events and pays opening/settlement gas. It retries unavailable RPC/beacon services. It does not have to receive participants' private secrets beforehand.
-6. The owner starts rounds through the interface. After automatic opening/settlement, participants claim rewards or refunds. The treasury claims fees separately.
+6. Holders create and accept battle requests through their profiles and the lobby. After automatic opening/settlement, participants claim rewards or refunds. The treasury claims fees separately.
 
 The keeper source is implemented, but no funded production keeper is running. Hosting, monitoring, durable transaction retries and deployment are separate operational steps. One-wallet voting is not proof of one human; multiple-wallet manipulation is outside the choice-privacy guarantee.
 
@@ -80,11 +93,11 @@ Display numbers can differ from token IDs: contract token 1090 is named CHOG #58
 
 ## Source
 
-- `contracts/BeautyArena.sol`: commitments, relayed reveals, escrow, settlement and claims
+- `contracts/BeautyArena.sol`: holder requests, NFT locks, commitments, relayed reveals, escrow, records and claims
 - `lib/timelock.mjs`: fixed-size browser encryption, pinned quicknet configuration and verified decryption
 - `lib/keeper.mjs`, `scripts/keeper.mjs`: automatic onchain opening process
 - `server.mjs`, `lib/demo.mjs`: persistent demo with the same protocol and payout rules
-- `public/`: interface with sealed side totals, leaderboard and gross/fee/net reward display
+- `public/`: profiles, request lobby, concurrent battles, sealed side totals, win/loss leaderboard and gross/fee/net rewards
 - `test/`: cryptographic fixtures, privacy boundaries, contract and payout tests
 
 Maintained in https://github.com/Komacsi/chog-beauty-arena.

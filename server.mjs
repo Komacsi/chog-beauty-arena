@@ -17,6 +17,9 @@ let state=JSON.parse(db.prepare('SELECT value FROM state WHERE id=1').get()?.val
 const save=()=>db.prepare('INSERT OR REPLACE INTO state VALUES (1,?)').run(JSON.stringify(state));
 let nfts=[];
 try{nfts=JSON.parse(await readFile(resolve(root,'data/collection.json'),'utf8')).nfts;}catch{}
+// Retain old demo history/claims, but retire automatically generated unfinished pairs.
+if(!state.matchmakingVersion){for(const r of state.rounds)if(!r.settled)Object.assign(r,{settled:true,cancelled:true,refund:true,winner:2,feeOnClaim:true,feeBps:FEE_BPS});state.challenges=[];state.ownership={};state.matchmakingVersion=1;save();}
+if(!state.losses){state.losses={};for(const r of state.rounds)if(r.settled && !r.cancelled && [0,1].includes(r.winner)){const loser=r.winner===0?r.nftB:r.nftA;state.losses[loser]=(state.losses[loser] || 0)+1;}save();}
 const artifact=JSON.parse(await readFile(resolve(root,'artifacts/BeautyArena.json'),'utf8'));
 const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
 const live=Boolean(arenaAddress);
@@ -26,25 +29,29 @@ const arena=live?new Contract(arenaAddress,artifact.abi,provider):null;
 const treasury='0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D';
 const port=Number(process.env.PORT || 3000);
 function publicRound(r){if(!r)return null;const {entries,...rest}=r;return rest;}
-let liveCache={at:0,round:null,history:[],points:{}};
-async function readLive(){
-  if(Date.now()-liveCache.at<10000)return liveCache;
+let liveCache={at:0,rounds:[],challenges:[],history:[],points:{}};
+async function readLive(fresh=false){
+  if(!fresh && Date.now()-liveCache.at<10000)return liveCache;
   const current=Number(await arena.currentRoundId());
-  const history=[];const points={};let round=null;
+  const history=[],rounds=[],challenges=[];const points={},losses={};
   for(let id=1;id<=current;id++) {
     const r=await arena.getRound(id);
     const item={id,nftA:Number(r.nftA),nftB:Number(r.nftB),endsAt:Number(r.endsAt)*1000,unlockAt:Number(r.unlockAt)*1000,revealEndsAt:Number(r.revealEndsAt)*1000,beaconRound:Number(r.beaconRound),committedCount:Number(r.committedCount),revealedCount:Number(r.revealedCount),totalCommitted:r.totalCommitted.toString(),protocolVersion:3,votesA:Number(r.votesA),votesB:Number(r.votesB),poolA:r.poolA.toString(),poolB:r.poolB.toString(),settled:r.settled,winner:Number(r.winner),refund:r.refund,cancelled:r.cancelled};
-    if(item.settled){history.push(item);if(item.winner!==2){const token=item.winner===0?item.nftA:item.nftB;points[token]=(points[token] || 0)+1;}}
-    if(id===current)round=item;
+    if(item.settled){history.push(item);if(!item.cancelled && item.winner!==2){const token=item.winner===0?item.nftA:item.nftB,loser=item.winner===0?item.nftB:item.nftA;points[token]=(points[token] || 0)+1;losses[loser]=(losses[loser] || 0)+1;}}
+    if(!item.settled)rounds.push(item);
   }
-  liveCache={at:Date.now(),round,history,points}; return liveCache;
+  const count=Number(await arena.challengeCount());
+  const collection=new Contract(COLLECTION,['function ownerOf(uint256) view returns(address)'],provider);
+  for(let id=1;id<=count;id++){const c=await arena.challenges(id);if(c.closed)continue;let valid=false;try{valid=(await collection.ownerOf(c.tokenId)).toLowerCase()===c.creator.toLowerCase();}catch{}
+    challenges.push({id,creator:c.creator,tokenId:Number(c.tokenId),createdAt:Number(c.createdAt)*1000,roundId:Number(c.roundId),closed:false,valid});}
+  liveCache={at:Date.now(),rounds,challenges,history,points,losses}; return liveCache;
 }
 const demoDrand=drandClient();let tickInFlight;
 function tick(){
   if(tickInFlight)return tickInFlight;
   tickInFlight=(async()=>{
-    let r=state.rounds.at(-1);const now=Date.now();
-    if(r && !r.settled && now>=(r.unlockAt || r.endsAt)){
+    for(const r of state.rounds){const now=Date.now();
+    if(!r.settled && now>=(r.unlockAt || r.endsAt)){
       if(r.revealEndsAt && now<r.revealEndsAt){
         for(const [id,e]of Object.entries(r.entries))if(!e.revealed){
           try{const ballot=await openBallot(e.sealedChoice,{arena:DEMO_ARENA,chainId:CHAIN_ID,roundId:r.id,account:demo.user(state,id).address,amount:e.amount,commitment:e.commitment},r.unlockAt,demoDrand);demo.revealVote(state,id,ballot);}
@@ -53,7 +60,7 @@ function tick(){
       }
       if(!r.revealEndsAt || r.revealedCount===r.committedCount || Date.now()>=r.revealEndsAt)demo.settle(state,r);
     }
-    if((!r || r.settled) && nfts.length>=2)demo.startRound(state,nfts,Date.now(),demoFastRounds);
+    }
     save();
   })().finally(()=>{tickInFlight=null;});return tickInFlight;
 }
@@ -67,38 +74,46 @@ const server=http.createServer(async(req,res)=>{
       if(req.method==='POST' && req.headers.origin && new URL(req.headers.origin).host!==req.headers.host)return json(res,403,{error:'Invalid origin'});
       let id=req.headers.cookie?.match(/(?:^|; )arena_demo=([a-f0-9-]{36})(?:;|$)/)?.[1];
       if(!id){id=randomUUID();res.setHeader('set-cookie',`arena_demo=${id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000`);}
+      const persona=req.headers.cookie?.match(/(?:^|; )arena_persona=(alice|bob|visitor)(?:;|$)/)?.[1] || 'alice';
+      if(!live){
+        if(!state.demoAccounts){state.demoAccounts={alice:id,bob:id+':bob',visitor:id+':visitor'};nfts.forEach((n,i)=>state.ownership[n.tokenId]=demo.user(state,state.demoAccounts[i%2?'bob':'alice']).address);save();}
+        id=state.demoAccounts[persona];demo.user(state,id).holder=demo.ownedTokens(state,id).length>0;
+      }
       if(!live)await tick();
       if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,arenaAddress,feeBps:FEE_BPS,nfts,abi:artifact.abi,demoFastRounds,privacy:'timelock'});
       if(req.method==='GET' && url.pathname==='/api/deployment')return json(res,200,artifact);
       if(req.method==='GET' && url.pathname==='/api/state') {
-        const data=live?await readLive():{round:publicRound(state.rounds.at(-1)),history:state.rounds.filter(r=>r.settled).slice(-30).map(publicRound),points:state.points};
+        const data=live?await readLive(url.searchParams.get('fresh')==='1'):{rounds:state.rounds.filter(r=>!r.settled).map(publicRound),challenges:state.challenges.filter(c=>!c.closed).map(c=>({...c,valid:state.ownership[c.tokenId]===c.creator})),history:state.rounds.filter(r=>r.settled).map(publicRound),points:state.points,losses:state.losses};
+        const selected=Number(url.searchParams.get('round'));
+        const round=url.searchParams.get('round')?[...data.rounds,...data.history].find(r=>r.id===selected) || null:data.rounds.at(-1) || null;
         const account=live?null:demo.user(state,id);
         const claims=live?[]:state.rounds.filter(r=>demo.payout(r,id)>0n).map(r=>{const p=demo.payoutBreakdown(r,id);return {id:r.id,gross:p.gross.toString(),fee:p.fee.toString(),amount:p.amount.toString()};});
-        return json(res,200,{...data,account,claims,entry:live?null:state.rounds.at(-1)?.entries[id] || null,serverNow:Date.now()});
-      }
-      if(req.method==='GET' && url.pathname==='/api/pair') {
-        if(nfts.length<2)throw new Error('Import NFTs first');
-        const s=demo.createState();const r=demo.startRound(s,nfts);return json(res,200,{a:r.nftA,b:r.nftB});
+        return json(res,200,{...data,round,account,claims,persona,ownedTokens:live?[]:demo.ownedTokens(state,id),entry:live?null:state.rounds.find(r=>r.id===round?.id)?.entries[id] || null,serverNow:Date.now()});
       }
       if(req.method==='POST'){
         if(live)return json(res,405,{error:'Live transactions must be signed in your wallet'});
-        let text='';for await(const chunk of req){text+=chunk;if(text.length>4096)throw new Error('Request too large');}
+        let text='';for await(const chunk of req){text+=chunk;if(text.length>8192)throw new Error('Request too large');}
         const body=JSON.parse(text || '{}');
         if(url.pathname==='/api/commit'){
           if('side' in body || 'salt' in body)throw Error('Plaintext choices must never be sent to this endpoint');
-          demo.commitVote(state,id,{commitment:body.commitment,sealedChoice:body.sealedChoice,amount:parseUnits(String(body.amount || '0'),18)});
+          if(!Number.isSafeInteger(body.roundId))throw Error('Select a round');
+          demo.commitVote(state,id,{roundId:body.roundId,commitment:body.commitment,sealedChoice:body.sealedChoice,amount:parseUnits(String(body.amount || '0'),18)});
         }
+        else if(url.pathname==='/api/challenges/create')demo.createChallenge(state,id,body.tokenId);
+        else if(url.pathname==='/api/challenges/cancel')demo.cancelChallenge(state,id,body.id);
+        else if(url.pathname==='/api/challenges/accept')demo.acceptChallenge(state,id,body.id,body.tokenId,Date.now(),demoFastRounds);
         else if(url.pathname==='/api/claim')demo.claim(state,state.rounds.find(r=>r.id===body.id) || {},id);
-        else if(url.pathname==='/api/demo/role')demo.user(state,id).holder=Boolean(body.holder);
-        else if(url.pathname==='/api/demo/cancel'){
-          const r=state.rounds.at(-1);if(!r)throw new Error('No round');Object.assign(r,{settled:true,cancelled:true,refund:true,winner:2,feeOnClaim:true,feeBps:FEE_BPS});await tick();
-        }else return json(res,404,{error:'Unknown endpoint'});
+        else if(url.pathname==='/api/demo/wallet'){
+          if(!['alice','bob','visitor'].includes(body.persona))throw Error('Unknown demo wallet');
+          res.setHeader('set-cookie',`arena_persona=${body.persona}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000`);
+        }
+        else return json(res,404,{error:'Unknown endpoint'});
         save();return json(res,200,{ok:true});
       }
       return json(res,404,{error:'Unknown endpoint'});
     }
     const publicRoot=resolve(root,'public');
-    const pathname=['/','/leaderboard','/setup'].includes(url.pathname)?'/index.html':decodeURIComponent(url.pathname);
+    const pathname=['/','/profile','/leaderboard','/setup'].includes(url.pathname)?'/index.html':decodeURIComponent(url.pathname);
     const file=resolve(publicRoot,'.'+pathname);
     if(!file.startsWith(publicRoot+sep))return json(res,403,{error:'Forbidden'});
     const bytes=await readFile(file);
@@ -106,6 +121,6 @@ const server=http.createServer(async(req,res)=>{
     res.end(bytes);
   }catch(error){json(res,error.code==='ENOENT'?404:400,{error:error.code==='ENOENT'?'File not found':error.shortMessage || error.message});}
 });
-server.listen(port,process.env.HOST || '127.0.0.1',()=>console.log(`Chog: Beauty Arena — http://localhost:${port} (${live?'LIVE':'DEMO'})`));
+server.listen(port,process.env.HOST || '127.0.0.1',()=>console.log(`Chog: Beauty Arena — http://localhost:${server.address().port} (${live?'LIVE':'DEMO'})`));
 function shutdown(){if(keeperTimer)clearInterval(keeperTimer);server.close(()=>{db.close();process.exit(0);});}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);

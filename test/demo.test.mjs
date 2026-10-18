@@ -5,7 +5,8 @@ import * as d from '../lib/demo.mjs';
 import {makeCommitment,makeSalt,DEMO_ARENA} from '../lib/commitments.mjs';
 const units=n=>parseUnits(String(n),18);
 function fixture(){
-  const state=d.createState(),now=Date.now(),round=d.startRound(state,[{tokenId:1090},{tokenId:1233}],now),ballots=new Map();
+  const state=d.createState(),now=Date.now(),ballots=new Map();state.ownership[1090]=d.user(state,'host').address;state.ownership[1233]=d.user(state,'opponent').address;
+  const request=d.createChallenge(state,'host',1090,now),round=d.acceptChallenge(state,'opponent',request.id,1233,now);
   function commit(id,side,amount){const ballot={arena:DEMO_ARENA,chainId:143,roundId:round.id,account:d.user(state,id).address,side,tokenId:side?round.nftB:round.nftA,amount:amount.toString(),salt:makeSalt()};d.commitVote(state,id,{commitment:makeCommitment(ballot),sealedChoice:'opaque ciphertext',amount},now);ballots.set(id,ballot);return ballot;}
   function reveal(id){d.revealVote(state,id,ballots.get(id),round.unlockAt);}
   function finish(){for(const id of ballots.keys())reveal(id);d.settle(state,round,round.unlockAt);}
@@ -25,7 +26,7 @@ test('early reveals, late commits and mismatched choices are rejected',()=>{
 test('gross payout first, then individual 1% fees on claiming',()=>{
   const f=fixture();f.commit('a',0,units(10));f.commit('b',0,units(30));f.commit('c',1,units(60));f.finish();
   assert.deepEqual(d.payoutBreakdown(f.round,'a'),{gross:units(25),fee:units('0.25'),amount:units('24.75')});assert.equal(d.payout(f.round,'b'),units('74.25'));assert.equal(d.payout(f.round,'c'),0n);assert.equal(f.state.fees,'0');
-  d.claim(f.state,f.round,'a');d.claim(f.state,f.round,'b');assert.equal(f.state.fees,units(1).toString());assert.throws(()=>d.claim(f.state,f.round,'a'),/Nothing/);assert.equal(f.state.points[f.round.nftA],1);
+  d.claim(f.state,f.round,'a');d.claim(f.state,f.round,'b');assert.equal(f.state.fees,units(1).toString());assert.throws(()=>d.claim(f.state,f.round,'a'),/Nothing/);assert.equal(f.state.points[f.round.nftA],1);assert.equal(f.state.losses[f.round.nftB],1);
 });
 test('ties refund every stake without fees or points',()=>{const f=fixture();f.commit('a',0,units(10));f.commit('b',1,units(30));f.finish();assert.equal(d.payout(f.round,'a'),units(10));assert.equal(d.payout(f.round,'b'),units(30));assert.equal(f.state.fees,'0');assert.deepEqual(f.state.points,{});});
 for(const side of [0,1])test(`one-sided bank with winner ${side} returns each stake in full`,()=>{const f=fixture();f.commit('a',side,units(10));f.commit('b',side,units(30));f.commit('c',1-side,0n);f.finish();assert.equal(d.payout(f.round,'a'),units(10));assert.equal(d.payout(f.round,'b'),units(30));assert.equal(f.state.fees,'0');assert.equal(f.round.winner,side);});

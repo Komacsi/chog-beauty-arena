@@ -17,7 +17,8 @@ async function fixture(){
   async function deploy(file,name,args=[]){const a=compiled[file][name],c=await new ContractFactory(a.abi,'0x'+a.evm.bytecode.object,signers[0]).deploy(...args);await c.waitForDeployment();return c;}
   const token=await deploy('Mocks.sol','MockToken'),nft=await deploy('Mocks.sol','MockNFT'),arena=await deploy('BeautyArena.sol','BeautyArena',[await token.getAddress(),await nft.getAddress(),await signers[5].getAddress()]);
   for(let i=0;i<5;i++){await(await token.mint(await signers[i].getAddress(),units(1000))).wait();await(await token.connect(signers[i]).approve(await arena.getAddress(),units(1000))).wait();}
-  await(await nft.mint(await signers[0].getAddress(),1)).wait();await(await nft.mint(await signers[0].getAddress(),2)).wait();await(await arena.startRound(1,2)).wait();
+  for(const [id,owner]of [[1,0],[2,4],[3,0],[4,4]])await(await nft.mint(await signers[owner].getAddress(),id)).wait();
+  await(await arena.createChallenge(1)).wait();await(await arena.connect(signers[4]).acceptChallenge(1,2)).wait();
   const ballots=[];
   async function commit(i,side,amount,holderId=0){const id=Number(await arena.currentRoundId()),b={arena:await arena.getAddress(),chainId:Number((await provider.getNetwork()).chainId),roundId:id,account:await signers[i].getAddress(),side,tokenId:side?2:1,amount:amount.toString(),salt:makeSalt()};const tx=await arena.connect(signers[i]).commitVote(id,makeCommitment(b),amount,holderId,toUtf8Bytes('opaque encrypted choice'));const receipt=await tx.wait();ballots.push(b);return {b,receipt};}
   async function goto(time){const block=await provider.send('eth_getBlockByNumber',['latest',false]);await provider.send('evm_increaseTime',[Math.max(0,Number(time)-Number(BigInt(block.timestamp)))]);await provider.send('evm_mine',[]);}
@@ -53,8 +54,29 @@ test('incomplete automatic opening cancels rather than trusting a selective tall
   assert.equal(r.cancelled,true);assert.equal(r.refund,true);assert.equal(await f.arena.points(1),0n);assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),units(10));assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),units(30));assert.equal(await f.arena.treasuryCredit(),0n);
 }finally{await f.close();}});
 test('one-sided banks return all stakes in either winning direction',async()=>{const f=await fixture();try{
-  for(const side of [0,1]){if(side)await(await f.arena.startRound(1,2)).wait();await f.commit(1,side,units(10));await f.commit(2,side,units(30));await f.commit(0,1-side,0n,1);await f.finish();const id=side+1;assert.equal(await f.arena.payout(id,await f.signers[1].getAddress()),units(10));assert.equal(await f.arena.payout(id,await f.signers[2].getAddress()),units(30));assert.equal(await f.arena.treasuryCredit(),0n);}
+  for(const side of [0,1]){if(side){await(await f.arena.createChallenge(1)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(2,2)).wait();}await f.commit(1,side,units(10));await f.commit(2,side,units(30));await f.commit(0,1-side,0n,1);await f.finish();const id=side+1;assert.equal(await f.arena.payout(id,await f.signers[1].getAddress()),units(10));assert.equal(await f.arena.payout(id,await f.signers[2].getAddress()),units(30));assert.equal(await f.arena.treasuryCredit(),0n);}
 }finally{await f.close();}});
 test('gross-first rounding conserves the complete encrypted round bank',async()=>{const f=await fixture();try{
   await f.commit(1,0,1n);await f.commit(2,0,2n);await f.commit(3,1,198n);await f.finish();const a=await f.arena.payoutBreakdown(1,await f.signers[1].getAddress()),b=await f.arena.payoutBreakdown(1,await f.signers[2].getAddress());assert.equal(a.gross,67n);assert.equal(a.amount,67n);assert.equal(b.gross,134n);assert.equal(b.fee,1n);assert.equal(b.amount,133n);await(await f.arena.connect(f.signers[1]).claim(1)).wait();await(await f.arena.connect(f.signers[2]).claim(1)).wait();await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();assert.equal(await f.token.balanceOf(await f.arena.getAddress()),0n);
+}finally{await f.close();}});
+
+test('holder-created requests enforce ownership, single NFT use, cancellation and 24h from acceptance',async()=>{const f=await fixture();try{
+  assert.equal(await f.arena.tokenRound(1),1n);assert.equal(await f.arena.tokenRound(2),1n);
+  await assert.rejects(f.arena.createChallenge.staticCall(1));await assert.rejects(f.arena.connect(f.signers[1]).createChallenge.staticCall(3));
+  await(await f.arena.createChallenge(3)).wait();assert.equal(await f.arena.currentRoundId(),1n);assert.equal(await f.arena.tokenChallenge(3),2n);
+  await assert.rejects(f.arena.acceptChallenge.staticCall(2,4));await assert.rejects(f.arena.connect(f.signers[1]).cancelChallenge.staticCall(2));
+  await(await f.arena.cancelChallenge(2)).wait();assert.equal(await f.arena.tokenAvailable(3),true);await assert.rejects(f.arena.connect(f.signers[4]).acceptChallenge.staticCall(2,4));
+  await(await f.arena.createChallenge(3)).wait();await f.goto((await f.arena.getRound(1)).endsAt);
+  const receipt=await(await f.arena.connect(f.signers[4]).acceptChallenge(3,4)).wait(),block=await f.provider.getBlock(receipt.blockNumber),r=await f.arena.getRound(2);
+  assert.equal(r.endsAt,BigInt(block.timestamp+24*60*60));assert.equal(await f.arena.tokenRound(3),2n);assert.equal(await f.arena.tokenRound(4),2n);
+  await assert.rejects(f.arena.cancelChallenge.staticCall(3));await assert.rejects(f.arena.connect(f.signers[4]).createChallenge.staticCall(4));
+  await f.goto((await f.arena.getRound(1)).unlockAt);await(await f.arena.settle(1)).wait();assert.equal(await f.arena.tokenAvailable(1),true);assert.equal(await f.arena.tokenAvailable(3),false);
+  await(await f.arena.createChallenge(1)).wait();await f.goto(r.unlockAt);await(await f.arena.settle(2)).wait();assert.equal(await f.arena.tokenAvailable(3),true);assert.equal(await f.arena.losses(3),0n);
+}finally{await f.close();}});
+
+test('transferring a pending NFT prevents stale acceptance; active lock survives a transfer',async()=>{const f=await fixture();try{
+  await(await f.arena.createChallenge(3)).wait();await(await f.nft.transferFrom(await f.signers[0].getAddress(),await f.signers[1].getAddress(),3)).wait();
+  await assert.rejects(f.arena.connect(f.signers[4]).acceptChallenge.staticCall(2,4));await(await f.arena.connect(f.signers[1]).cancelChallenge(2)).wait();await(await f.arena.connect(f.signers[1]).createChallenge(3)).wait();
+  await(await f.arena.connect(f.signers[4]).acceptChallenge(3,4)).wait();await(await f.nft.connect(f.signers[1]).transferFrom(await f.signers[1].getAddress(),await f.signers[2].getAddress(),3)).wait();await assert.rejects(f.arena.connect(f.signers[2]).createChallenge.staticCall(3));
+  await f.goto((await f.arena.getRound(2)).unlockAt);await(await f.arena.settle(2)).wait();await(await f.arena.connect(f.signers[2]).createChallenge(3)).wait();
 }finally{await f.close();}});

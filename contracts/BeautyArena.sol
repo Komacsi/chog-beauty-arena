@@ -19,6 +19,7 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     uint256 public constant DRAND_GENESIS = 1692803367;
     uint256 public constant DRAND_PERIOD = 3;
     uint256 public currentRoundId;
+    uint256 public challengeCount;
     uint256 public treasuryCredit;
     struct Round {
         uint256 nftA; uint256 nftB; uint256 endsAt;
@@ -28,11 +29,19 @@ contract BeautyArena is Ownable, ReentrancyGuard {
         uint8 winner; bool settled; bool refund; bool cancelled;
     }
     struct Entry { bytes32 commitment; uint256 amount; uint8 side; bool committed; bool revealed; bool claimed; }
+    struct Challenge { address creator; uint256 tokenId; uint256 createdAt; uint256 roundId; bool closed; }
+    mapping(uint256 => Challenge) public challenges;
+    mapping(uint256 => uint256) public tokenChallenge;
+    mapping(uint256 => uint256) public tokenRound;
     mapping(uint256 => Round) internal rounds;
     mapping(uint256 => mapping(address => Entry)) public entries;
     mapping(uint256 => uint256) public points;
+    mapping(uint256 => uint256) public losses;
     mapping(uint256 => mapping(uint256 => bool)) public unstakedVoteUsed;
     event RoundStarted(uint256 indexed id, uint256 nftA, uint256 nftB, uint256 endsAt, uint256 unlockAt);
+    event ChallengeCreated(uint256 indexed id, address indexed creator, uint256 tokenId);
+    event ChallengeCancelled(uint256 indexed id);
+    event ChallengeAccepted(uint256 indexed id, address indexed opponent, uint256 tokenId, uint256 roundId);
     event VoteCommitted(uint256 indexed id, address indexed account, bytes32 commitment, uint256 amount, bytes sealedChoice);
     event VoteRevealed(uint256 indexed id, address indexed account, uint8 side, uint256 amount);
     event RoundSettled(uint256 indexed id, uint8 winner, bool refund, bool cancelled);
@@ -41,10 +50,43 @@ contract BeautyArena is Ownable, ReentrancyGuard {
         require(token_!=address(0) && collection_!=address(0) && treasury_!=address(0),'Zero address');
         chog=IERC20(token_); collection=IERC721(collection_); treasury=treasury_;
     }
-    function startRound(uint256 nftA,uint256 nftB) external onlyOwner {
-        require(currentRoundId==0 || rounds[currentRoundId].settled,'Settle previous round');
-        require(nftA!=nftB,'Same NFT'); collection.ownerOf(nftA); collection.ownerOf(nftB);
-        Round storage r=rounds[++currentRoundId];
+    function tokenAvailable(uint256 tokenId) public view returns(bool) {
+        return tokenChallenge[tokenId]==0 && tokenRound[tokenId]==0;
+    }
+    function createChallenge(uint256 tokenId) external returns(uint256 id) {
+        require(collection.ownerOf(tokenId)==msg.sender,'Not NFT owner');
+        require(tokenAvailable(tokenId),'NFT busy');
+        id=++challengeCount;
+        challenges[id]=Challenge(msg.sender,tokenId,block.timestamp,0,false);
+        tokenChallenge[tokenId]=id;
+        emit ChallengeCreated(id,msg.sender,tokenId);
+    }
+    function cancelChallenge(uint256 id) external {
+        Challenge storage c=challenges[id];
+        require(c.creator!=address(0) && !c.closed,'Challenge closed');
+        // Anyone may clear a stale request after the creator transfers or burns its NFT.
+        require(msg.sender==c.creator || !_owns(c.creator,c.tokenId),'Creator only');
+        c.closed=true;delete tokenChallenge[c.tokenId];
+        emit ChallengeCancelled(id);
+    }
+    function _owns(address account,uint256 tokenId) internal view returns(bool) {
+        try collection.ownerOf(tokenId) returns(address holder){return holder==account;}catch{return false;}
+    }
+    function acceptChallenge(uint256 id,uint256 tokenId) external returns(uint256 roundId) {
+        Challenge storage c=challenges[id];
+        require(c.creator!=address(0) && !c.closed,'Challenge closed');
+        require(msg.sender!=c.creator,'Different holder required');
+        require(_owns(c.creator,c.tokenId),'Creator no longer owns NFT');
+        require(collection.ownerOf(tokenId)==msg.sender,'Not NFT owner');
+        require(tokenId!=c.tokenId && tokenAvailable(tokenId),'NFT busy');
+        c.closed=true;delete tokenChallenge[c.tokenId];
+        roundId=_startRound(c.tokenId,tokenId);c.roundId=roundId;
+        tokenRound[c.tokenId]=roundId;tokenRound[tokenId]=roundId;
+        emit ChallengeAccepted(id,msg.sender,tokenId,roundId);
+    }
+    function _startRound(uint256 nftA,uint256 nftB) internal returns(uint256 id) {
+        id=++currentRoundId;
+        Round storage r=rounds[id];
         r.nftA=nftA; r.nftB=nftB; r.endsAt=block.timestamp+DURATION;
         uint256 target=r.endsAt+UNLOCK_DELAY;
         r.beaconRound=(target-DRAND_GENESIS+DRAND_PERIOD-1)/DRAND_PERIOD+1;
@@ -88,9 +130,10 @@ contract BeautyArena is Ownable, ReentrancyGuard {
         require(!r.settled,'Already settled');
         require(r.revealedCount==r.committedCount || block.timestamp>=r.revealEndsAt,'Reveal incomplete');
         r.settled=true;
+        delete tokenRound[r.nftA];delete tokenRound[r.nftB];
         if(r.revealedCount!=r.committedCount){r.cancelled=true;r.refund=true;r.winner=2;}
         else if(r.votesA==r.votesB){r.refund=true;r.winner=2;}
-        else{r.winner=r.votesA>r.votesB?0:1;points[r.winner==0?r.nftA:r.nftB]++;r.refund=r.poolA==0 || r.poolB==0;}
+        else{r.winner=r.votesA>r.votesB?0:1;points[r.winner==0?r.nftA:r.nftB]++;losses[r.winner==0?r.nftB:r.nftA]++;r.refund=r.poolA==0 || r.poolB==0;}
         emit RoundSettled(id,r.winner,r.refund,r.cancelled);
     }
     function payoutBreakdown(uint256 id,address account) public view returns(uint256 gross,uint256 fee,uint256 amount){
