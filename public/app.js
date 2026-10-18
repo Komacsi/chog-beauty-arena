@@ -102,7 +102,7 @@ function render(){
   if(location.pathname==='/profile'){renderProfile();return;}
   if(location.pathname==='/' && !new URLSearchParams(location.search).has('round')){renderLobby();return;}
   if(location.pathname==='/leaderboard'){
-    content.innerHTML=`<div class="board-top"><div><div class="eyebrow">THE COMMUNITY HAS SPOKEN</div><h1>The beauty <em>leaderboard.</em></h1><p class="intro">Draws count only when at least two votes were cast.</p></div><input id="search" aria-label="Search NFTs" placeholder="Search name or token ID…" value="${esc(values.search || '')}"></div><div class="board" id="board"></div>`;$('#search').oninput=board;board();return;
+    content.innerHTML=`<div class="board-top"><div><div class="eyebrow">THE COMMUNITY HAS SPOKEN</div><h1>The beauty <em>leaderboard.</em></h1><p class="intro">NFTs with a 0 - 0 record are hidden.<br>Draws count only when at least two votes were cast.</p></div><input id="search" aria-label="Search NFTs" placeholder="Search name or token ID…" value="${esc(values.search || '')}"></div><div class="board" id="board"></div>`;$('#search').oninput=board;board();return;
   }
   if(location.pathname==='/setup'){
     content.innerHTML=`<section class="setup"><div class="eyebrow">ENCRYPTED ARENA SETUP</div><h1>Launch your <em>arena.</em></h1><p class="intro">Deploy the new time-encrypted contract on Monad. A separate funded keeper process automatically opens choices after closing. Deploying costs MON gas.</p><p class="intro">Treasury: ${esc(config.treasury)}<br>1% deducted after calculating each winning payout. Refunds have no fee.</p><button id="deploy">Deploy contract with wallet</button><div id="deployment-result"></div></section>`;
