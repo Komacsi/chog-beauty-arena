@@ -30,7 +30,9 @@ contract MockNFT is ERC721 { constructor() ERC721('Chog','CHOG') {} function min
 // Monetary fixture values below are lots of 1,000 CHOG.
 const lots=n=>parseUnits(String(Number(n)*1000),18);
 async function fixture(historical=false){
-  const transport=ganache.provider({logging:{quiet:true},chain:{hardfork:'shanghai',...(historical?{time:new Date((1692803367-86400-300)*1000)}:{})},...(historical?{miner:{timestampIncrement:0}}:{}),wallet:{totalAccounts:6}}),provider=new BrowserProvider(transport);provider.pollingInterval=10;
+  // Local blocks are mined faster than the provider's default 250 ms read cache.
+  // Disable that cache so each assertion/keeper scan sees the blocks just mined.
+  const transport=ganache.provider({logging:{quiet:true},chain:{hardfork:'shanghai',...(historical?{time:new Date((1692803367-86400-300)*1000)}:{})},...(historical?{miner:{timestampIncrement:0}}:{}),wallet:{totalAccounts:6}}),provider=new BrowserProvider(transport,undefined,{cacheTimeout:-1});provider.pollingInterval=10;
   const signers=await Promise.all(Array.from({length:6},(_,i)=>provider.getSigner(i)));
   async function deploy(file,name,args=[]){const a=compiled[file][name],c=await new ContractFactory(a.abi,'0x'+a.evm.bytecode.object,signers[0]).deploy(...args);await c.waitForDeployment();return c;}
   const token=await deploy('Mocks.sol','MockToken'),nft=await deploy('Mocks.sol','MockNFT'),arena=await deploy('BeautyArena.sol','BeautyArena',[await token.getAddress(),await nft.getAddress(),await signers[5].getAddress(),await signers[4].getAddress()]);
@@ -184,7 +186,7 @@ test('automatic service decrypts published ballots and excludes garbage without 
   const options={arena:f.arena.connect(f.signers[4]),provider:f.provider,fromBlock:0,client,id:1};
   const opened=await processRound(options);assert.equal(opened.phase,'opening');assert.equal(opened.revealed,3);assert.equal(opened.failed,1);
   assert.equal((await f.arena.getRound(1)).votesA,2n);assert.equal((await f.arena.getRound(1)).votesB,1n);
-  await f.goto(r.revealEndsAt);await new Promise(done=>setTimeout(done,300));
+  await f.goto(r.revealEndsAt);
   assert.equal((await processRound(options)).phase,'settled');
   assert.equal((await f.arena.getRound(1)).winner,0n);assert.equal((await f.arena.getRound(1)).cancelled,false);
   assert.equal(await f.arena.payout(1,await f.signers[0].getAddress()),lots(20));
