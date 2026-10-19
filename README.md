@@ -69,6 +69,7 @@ Copy `.env.example` to `.env` for optional settings. Demo rounds default to two 
 ```sh
 npm run check
 npm test
+npm run audit:security        # Official npm audit with reduced connection concurrency
 npm run import:nfts           # Only the selected 10 images
 npm run import:nfts -- --full # Explicitly import all 1969
 ```
@@ -91,6 +92,8 @@ The keeper cannot directly withdraw participant banks or change a bound vote, bu
 No funded production keeper, Safe, hosting or alert destination has been created. Encrypted storage protects keys at rest; the running process still handles decrypted keys. Root/process compromise remains dangerous. The monitor's bounded scan reports incomplete coverage; durable event/transaction indexing, pending nonce recovery and load testing remain release requirements. RPC queries use at most 100-block ranges, 15-second request timeouts and 30-second receipt waits; a timeout does not cancel a broadcast. The demo remains independent on its existing state directory.
 
 Opt-in security checks: node scripts/security-assets.mjs inventories public asset bytecode/proxy slots; node scripts/security-fork.mjs runs a disposable local EVM integration against a current Monad snapshot, including an individually refunded malformed entry. A third CLI argument can pin the fork block. Upstream RPC is restricted to read methods; all fork transactions stay local. See security/ for the recorded snapshots and the report for limitations. These network-dependent scripts are outside ordinary CI.
+
+For npm audit connection resets, use npm run audit:security. It runs the installed official npm audit with fresh registry data, one connection per origin and bounded timeouts. Transport errors retry the whole audit at most three times, including response-body resets that npm's connection retries did not cover. It returns only a complete npm JSON report: exit 0 for no findings, 1 for findings and 2 if no report was obtained. The command completed during diagnosis; regression tests cover response resets, findings and incomplete output. The precise upstream/network cause was not established. Registry and TLS verification remain unchanged. The current report is saved as security/npm-audit.json, with 36 findings in Ganache and its development dependencies; dependencies were not automatically changed.
 
 ## Addresses and NFT IDs
 
