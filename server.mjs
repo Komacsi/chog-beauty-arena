@@ -3,13 +3,14 @@ import {readFile,mkdir} from 'node:fs/promises';
 import {resolve,extname,sep} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
-import {Contract,JsonRpcProvider,parseUnits} from 'ethers';
+import {Contract,JsonRpcProvider,FetchRequest,parseUnits} from 'ethers';
 import {COLLECTION,CHOG_TOKEN,CHAIN_ID,RPC_URL,FEE_BPS,MIN_STAKE} from './lib/config.mjs';
 import * as demo from './lib/demo.mjs';
 import {openBallot,drandClient} from './lib/timelock.mjs';
 import {DEMO_ARENA} from './lib/commitments.mjs';
 import {drawTotals} from './lib/leaderboard.mjs';
 import {RELEASE_STATUS,assertLiveReleaseAllowed} from './lib/release.mjs';
+import {createLiveCache} from './lib/live-cache.mjs';
 const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
 assertLiveReleaseAllowed(arenaAddress);
 const root=import.meta.dirname;
@@ -29,14 +30,13 @@ if(demo.migrateMinimumStake(state))save();
 const artifact=JSON.parse(await readFile(resolve(root,'artifacts/BeautyArena.json'),'utf8'));
 const live=Boolean(arenaAddress);
 const demoFastRounds=!live && process.env.DEMO_FAST_ROUNDS!=='0';
-const provider=live?new JsonRpcProvider(RPC_URL,CHAIN_ID,{batchMaxCount:1}):null;
+const rpcConnection=new FetchRequest(RPC_URL);rpcConnection.timeout=15000;
+const provider=live?new JsonRpcProvider(rpcConnection,CHAIN_ID,{batchMaxCount:1}):null;
 const arena=live?new Contract(arenaAddress,artifact.abi,provider):null;
 const treasury='0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D';
 const port=Number(process.env.PORT || 3000);
 function publicRound(r){if(!r)return null;const {entries,...rest}=r;return rest;}
-let liveCache={at:0,rounds:[],challenges:[],history:[],points:{}};
-async function readLive(fresh=false){
-  if(!fresh && Date.now()-liveCache.at<10000)return liveCache;
+const readLive=createLiveCache(async()=>{
   const current=Number(await arena.currentRoundId());
   const history=[],rounds=[],challenges=[];const points={},losses={};
   for(let id=1;id<=current;id++) {
@@ -49,8 +49,8 @@ async function readLive(fresh=false){
   const collection=new Contract(COLLECTION,['function ownerOf(uint256) view returns(address)'],provider);
   for(let id=1;id<=count;id++){const c=await arena.challenges(id);if(c.closed)continue;let valid=false;try{valid=(await collection.ownerOf(c.tokenId)).toLowerCase()===c.creator.toLowerCase();}catch{}
     challenges.push({id,creator:c.creator,tokenId:Number(c.tokenId),createdAt:Number(c.createdAt)*1000,roundId:Number(c.roundId),closed:false,valid});}
-  liveCache={at:Date.now(),rounds,challenges,history,points,losses,draws:drawTotals(history)}; return liveCache;
-}
+  return {rounds,challenges,history,points,losses,draws:drawTotals(history)};
+});
 const demoDrand=drandClient();let tickInFlight;
 function tick(){
   if(tickInFlight)return tickInFlight;
@@ -72,7 +72,7 @@ function tick(){
 const keeperTimer=live?null:setInterval(()=>tick().catch(()=>{}),5000);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.png':'image/png','.jpg':'image/jpeg','.json':'application/json'};
 const json=(res,status,data)=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(data));};
-const server=http.createServer(async(req,res)=>{
+const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connectionsCheckingInterval:1000,maxHeaderSize:16384},async(req,res)=>{
   try{
     const url=new URL(req.url,'http://localhost');
     if(url.pathname.startsWith('/api/')) {
@@ -97,8 +97,9 @@ const server=http.createServer(async(req,res)=>{
       }
       if(req.method==='POST'){
         if(live)return json(res,405,{error:'Live transactions must be signed in your wallet'});
-        let text='';for await(const chunk of req){text+=chunk;if(text.length>8192)throw new Error('Request too large');}
+        let text='',bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>8192)throw new Error('Request too large');text+=chunk;}
         const body=JSON.parse(text || '{}');
+        if(!body || typeof body!=='object' || Array.isArray(body))throw Error('Expected a JSON object');
         if(url.pathname==='/api/commit'){
           if('side' in body || 'salt' in body)throw Error('Plaintext choices must never be sent to this endpoint');
           if(!Number.isSafeInteger(body.roundId))throw Error('Select a round');
@@ -126,6 +127,7 @@ const server=http.createServer(async(req,res)=>{
     res.end(bytes);
   }catch(error){json(res,error.code==='ENOENT'?404:400,{error:error.code==='ENOENT'?'File not found':error.shortMessage || error.message});}
 });
+server.maxHeadersCount=100;server.maxRequestsPerSocket=100;
 server.listen(port,process.env.HOST || '127.0.0.1',()=>console.log(`Chog: Beauty Arena — http://localhost:${server.address().port} (${live?'LIVE':'DEMO'})`));
 function shutdown(){if(keeperTimer)clearInterval(keeperTimer);server.close(()=>{db.close();process.exit(0);});}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);

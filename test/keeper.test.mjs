@@ -15,6 +15,22 @@ test('one failing match cannot prevent another match from progressing',async()=>
   const result=await processRounds({arena,provider:{getBlock:async()=>({timestamp:30})}});assert.deepEqual(result.map(r=>r.phase),['retry','waiting']);
 });
 
+test('receipt waits are bounded so an unmined settlement cannot stall every later match',async()=>{
+  const waits=[];
+  const arena={currentRoundId:async()=>2n,getRound:async id=>({settled:false,unlockAt:id===1?10:1000,revealEndsAt:20,revealedCount:0,committedCount:0}),
+    settle:async()=>({wait:async(confirmations,timeout)=>{waits.push([confirmations,timeout]);if(timeout===undefined)throw Error('Unbounded receipt wait');const error=Error('Not mined');error.code='TIMEOUT';throw error;}})};
+  const result=await processRounds({arena,provider:{getBlock:async()=>({timestamp:30}),getNetwork:async()=>({chainId:143n})},receiptTimeoutMs:30000});
+  assert.deepEqual(waits,[[1,30000]]);assert.deepEqual(result.map(r=>r.phase),['retry','waiting']);
+});
+
+test('event scans respect the public Monad RPC limit of 100 blocks and cover the final partial range',async()=>{
+  const ranges=[],round={settled:false,unlockAt:1,revealEndsAt:100,committedCount:1n,revealedCount:0n};
+  const arena={getRound:async()=>round,filters:{VoteCommitted:()=>({})},queryFilter:async(filter,from,to)=>{assert.ok(to-from<100);ranges.push([from,to]);return [];}};
+  const provider={getBlock:async()=>({timestamp:50}),getBlockNumber:async()=>350,getNetwork:async()=>({chainId:143n})};
+  assert.equal((await processRound({arena,provider,fromBlock:100,id:1})).phase,'opening');
+  assert.deepEqual(ranges,[[100,199],[200,299],[300,350]]);
+});
+
 for(const rejectSimulation of [false,true])test(`keeper simulates a valid reveal before paying gas (simulation rejected: ${rejectSimulation})`,async()=>{
   const beacon=JSON.parse(await readFile(new URL('./fixtures/drand-round-1.json',import.meta.url),'utf8'));
   const client=drandClient(async()=>({ok:true,json:async()=>beacon}));

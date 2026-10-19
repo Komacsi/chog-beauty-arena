@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-10-19T21:02:37.741Z",
+  "upstreamChainId": 143,
+  "forkBlock": 114857107,
+  "localChainId": 1337,
+  "nftA": 299,
+  "nftB": 379,
+  "depositAndPayout": "passed",
+  "realTransactionsSent": 0,
+  "limitations": "Single-state integration test in Shanghai EVM, manual reveals, missing Monad withdrawals array normalized to empty. Not a Monad consensus/gas test, source audit, protocol proof, outage or future admin-behavior guarantee."
+}

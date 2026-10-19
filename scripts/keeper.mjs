@@ -1,4 +1,4 @@
-import {Contract,JsonRpcProvider,Wallet} from 'ethers';
+import {Contract,JsonRpcProvider,Wallet,FetchRequest} from 'ethers';
 import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {RPC_URL,CHAIN_ID} from '../lib/config.mjs';
@@ -9,7 +9,8 @@ const key=process.env.KEEPER_PRIVATE_KEY,address=process.env.ARENA_CONTRACT_ADDR
 assertLiveReleaseAllowed(address);
 if(!key || !address)throw Error('Set KEEPER_PRIVATE_KEY and ARENA_CONTRACT_ADDRESS in your local .env; never put private keys in source control.');
 if(!/^\d+$/.test(process.env.KEEPER_FROM_BLOCK || ''))throw Error('Set KEEPER_FROM_BLOCK to the contract deployment block.');
-const provider=new JsonRpcProvider(RPC_URL,undefined,{batchMaxCount:1});
+const connection=new FetchRequest(RPC_URL);connection.timeout=15000;
+const provider=new JsonRpcProvider(connection,undefined,{batchMaxCount:1});
 if(Number((await provider.getNetwork()).chainId)!==CHAIN_ID)throw Error('Keeper RPC is on the wrong network');
 const signer=new Wallet(key,provider);
 const artifact=JSON.parse(await readFile(resolve(import.meta.dirname,'../artifacts/BeautyArena.json'),'utf8'));

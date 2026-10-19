@@ -12,6 +12,11 @@ test('HTTP flow: empty lobby, profile ownership, cancel, accept, concurrent matc
     const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server timeout')),15000);child.stdout.on('data',d=>{logs+=d;const m=logs.match(/http:\/\/localhost:(\d+)/);if(m){clearTimeout(timer);resolve('http://127.0.0.1:'+m[1]);}});child.once('exit',code=>{clearTimeout(timer);reject(Error('Server exited '+code));});});
     async function request(path,body,expected=200){const response=await fetch(base+'/api/'+path,{method:body===undefined?'GET':'POST',headers:{cookie:[...cookies].map(([k,v])=>k+'='+v).join('; '),...(body===undefined?{}:{'content-type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});for(const c of response.headers.getSetCookie()){const [key,value]=c.split(';')[0].split('=');cookies.set(key,value);}const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));return result;}
     let s=await request('state');assert.equal(s.rounds.length,0);assert.equal(s.challenges.length,0);assert.equal(s.ownedTokens.length,5);const a=s.ownedTokens;
+    for(const body of ['null','[]','{broken',JSON.stringify({padding:'a'.repeat(9000)}),JSON.stringify({padding:'界'.repeat(3000)})]){
+      const response=await fetch(base+'/api/challenges/create',{method:'POST',headers:{'content-type':'application/json'},body});
+      assert.equal(response.status,400);assert.equal((await request('state')).challenges.length,0);
+    }
+    const burst=await Promise.all(Array.from({length:40},()=>fetch(base+'/api/state?fresh=1')));assert.ok(burst.every(r=>r.status===200));
     const foreignOrigin=await fetch(base+'/api/challenges/create',{method:'POST',headers:{origin:'https://untrusted.example','content-type':'application/json'},body:JSON.stringify({tokenId:a[0]})});
     assert.equal(foreignOrigin.status,403);assert.equal((await request('state')).challenges.length,0);
     assert.equal((await fetch(base+'/%2e%2e%2fpackage.json')).status,403);

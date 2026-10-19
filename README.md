@@ -77,7 +77,7 @@ Previously settled demo records retain their recorded payouts. On migration to h
 
 ## Live deployment and keeper
 
-**Security review: real-funds launch is blocked.** See [SECURITY_REVIEW.md](SECURITY_REVIEW.md). The official server, keeper and setup page reject real-token deployment while the two protocol findings remain unresolved. The guard is not an onchain defense and does not stop a third party from deploying the source. No live deployment or real token transactions have been performed by the agent. This revision requires a newly deployed contract with the holder-matchmaking ABI; older arena deployments are not compatible.
+**Security review: real-funds launch is blocked.** See [SECURITY_REVIEW.md](SECURITY_REVIEW.md). Invalid-ciphertext sabotage, keeper operational readiness and external-asset validation remain release conditions. Multi-wallet vote manipulation (SEC-02) is explicitly accepted by the creator and is not a launch blocker. The official server, keeper and setup page reject real-token deployment while the release guard is active. The guard is not an onchain defense and does not stop a third party from deploying source. No live deployment or real token transactions have been performed by the agent. This revision requires a newly deployed contract with the holder-matchmaking ABI; older deployments are not compatible.
 
 1. Review and test the prototype, including its cancellation/invalid-ciphertext limitation.
 2. Open `/setup`, connect a Monad wallet and deploy the encrypted arena. Deployment costs MON gas. Save the address and deployment block shown in the interface.
@@ -86,7 +86,9 @@ Previously settled demo records retain their recorded payouts. On migration to h
 5. Run `npm start` and, as a separate continuously running process, `npm run keeper`. The keeper scans onchain commitment events and pays opening/settlement gas. It retries unavailable RPC/beacon services. It does not have to receive participants' private secrets beforehand.
 6. Holders create and accept battle requests through their profiles and the lobby. After automatic opening/settlement, participants claim rewards or refunds. The treasury claims fees separately.
 
-The keeper source is implemented, but no funded production keeper is running. Hosting, monitoring, durable transaction retries and deployment are separate operational steps. One-wallet voting is not proof of one human; multiple-wallet manipulation is outside the choice-privacy guarantee.
+The keeper source is implemented, but no funded production keeper is running. Event queries use ranges of at most 100 blocks, RPC calls time out after 15 seconds and receipt waits after 30 seconds. A timeout does not cancel a broadcast transaction. Hosting, monitoring, durable event/transaction indexing, pending nonce recovery and deployment remain required. API scans coalesce concurrent requests, including fresh requests, with a minimum refresh interval. One-wallet voting is not proof of one human; multiple-wallet manipulation is outside the choice-privacy guarantee.
+
+Opt-in security checks: node scripts/security-assets.mjs inventories public asset bytecode/proxy slots; node scripts/security-fork.mjs runs a disposable local EVM integration against a current Monad snapshot. Upstream RPC is restricted to read methods; all fork transactions stay local. See security/ for the recorded snapshots and the report for limitations. These network-dependent scripts are outside ordinary CI.
 
 ## Addresses and NFT IDs
 

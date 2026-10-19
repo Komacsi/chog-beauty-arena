@@ -1,8 +1,10 @@
-import {BrowserProvider,Contract,ContractFactory,formatUnits,parseUnits,toUtf8Bytes} from 'ethers';
+import {BrowserProvider,Contract,ContractFactory,formatUnits,parseUnits} from 'ethers';
 import {sealBallot} from '../lib/timelock.mjs';
 import {phase,DEMO_ARENA} from '../lib/commitments.mjs';
 import {leaderboard} from '../lib/leaderboard.mjs';
+import {submitLiveBet} from '../lib/live-bet.mjs';
 let config,state,signer,address='',holder=false,busy=false,owned=[],displayedPhase=null;
+let walletEpoch=0;
 const nftSelections=new Map();
 const $=s=>document.querySelector(s);
 const esc=v=>String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -189,11 +191,20 @@ async function cast(side,amountText){
   if(amount===0n && !hasNFT)throw Error('Non-holders must place a bet in CHOG to participate');
   if(config.mode==='live' && amount===0n && (!Number.isSafeInteger(holderId) || holderId<1))throw Error('No owned Chog is available in the imported prototype collection. Please place a bet or use a wallet with an imported Chog.');
   toast('Encrypting your choice locally…');
+  if(config.mode==='live'){
+    const capturedSigner=signer,capturedEpoch=walletEpoch;
+    const arena=new Contract(config.arenaAddress,config.abi,capturedSigner);
+    const token=new Contract(config.token,['function allowance(address,address) view returns(uint256)','function approve(address,uint256) returns(bool)'],capturedSigner);
+    const assertWallet=async()=>{
+      const [accounts,chain]=await Promise.all([capturedSigner.provider.send('eth_accounts',[]),capturedSigner.provider.send('eth_chainId',[])]);
+      if(walletEpoch!==capturedEpoch || signer!==capturedSigner || !sameAddress(accounts[0],account) || BigInt(chain)!==BigInt(config.chainId))throw Error('Wallet or network changed. Please retry your bet.');
+    };
+    await submitLiveBet({arena,token,account,chainId:config.chainId,roundId:r.id,side,amount,holderId,assertWallet,notify:toast});
+    toast('Encrypted choice recorded. The keeper handles opening.');return;
+  }
   const sealed=await sealBallot({arena:config.arenaAddress || DEMO_ARENA,chainId:config.chainId,roundId:r.id,account,side,tokenId:side===0?r.nftA:r.nftB,amount:amount.toString()},r.beaconRound);
   if(config.mode==='demo'){await api('commit',{...sealed,amount:amountText,roundId:r.id});toast('Choice encrypted. It will open automatically after closing.');return;}
-  if(amount>0n){const token=new Contract(config.token,['function allowance(address,address) view returns(uint256)','function approve(address,uint256) returns(bool)'],signer);if(await token.allowance(address,config.arenaAddress)<amount){toast('Approve the exact CHOG bet');await(await token.approve(config.arenaAddress,amount)).wait();}}
-  toast('Confirm encrypted participation in your wallet');await(await contract().commitVote(r.id,sealed.commitment,amount,holderId,toUtf8Bytes(sealed.sealedChoice))).wait();toast('Encrypted choice recorded. The keeper handles opening.');
 }
 $('#wallet').onclick=()=>config.mode==='demo'?location.assign('/profile'):run(connect);
-window.ethereum?.on?.('accountsChanged',()=>{address='';signer=null;holder=false;owned=[];$('#wallet').textContent='Connect wallet ↗';run(refresh);});window.ethereum?.on?.('chainChanged',()=>location.reload());
+window.ethereum?.on?.('accountsChanged',()=>{walletEpoch++;address='';signer=null;holder=false;owned=[];$('#wallet').textContent='Connect wallet ↗';run(refresh);});window.ethereum?.on?.('chainChanged',()=>{walletEpoch++;location.reload();});
 try{config=await api('config');await refresh();setInterval(()=>{if(!busy && !document.querySelector('[data-picker-toggle][aria-expanded="true"]') && !['INPUT','SELECT'].includes(document.activeElement.tagName))refresh().catch(e=>toast(e.message));},10000);setInterval(clock,1000);}catch(e){$('#content').innerHTML='<div class="empty">'+esc(e.message)+'</div>';}

@@ -1,15 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import ganache from 'ganache';
-import {BrowserProvider,ContractFactory,parseUnits,toUtf8Bytes} from 'ethers';
+import {BrowserProvider,ContractFactory,parseUnits,toUtf8Bytes,id as signatureId} from 'ethers';
 import {compile} from '../scripts/compile.mjs';
 import {makeCommitment,makeSalt} from '../lib/commitments.mjs';
 const compiled=compile({'Mocks.sol':{content:`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '@openzeppelin/contracts/token/ERC721/ERC721.sol';
-contract MockToken is ERC20 { constructor() ERC20('Chog','CHOG') {} function mint(address a,uint256 n) external {_mint(a,n);} }
-contract MockNFT is ERC721 { constructor() ERC721('Chog','CHOG') {} function mint(address a,uint256 n) external {_mint(a,n);} }`}});
+contract MockToken is ERC20 {
+  address public callbackTarget; bytes public callbackData; bool public callbackSucceeded; bytes4 public callbackFailure;
+  bool public taxed; address public blockedSender;
+  constructor() ERC20('Chog','CHOG') {}
+  function mint(address a,uint256 n) external {_mint(a,n);}
+  function configure(bool tax,address blocked,address target,bytes calldata payload) external {taxed=tax;blockedSender=blocked;callbackTarget=target;callbackData=payload;}
+  function _update(address from,address to,uint256 value) internal override {
+    require(from==address(0) || from!=blockedSender,'Mock transfer blocked');
+    if(taxed && from!=address(0) && to!=address(0)){uint256 fee=value/100;super._update(from,address(0),fee);value-=fee;}
+    super._update(from,to,value);
+  }
+  function callback() internal {if(callbackTarget!=address(0)){(bool ok,bytes memory data)=callbackTarget.call(callbackData);callbackSucceeded=ok;if(data.length>=4)callbackFailure=bytes4(data);}}
+  function transferFrom(address a,address b,uint256 n) public override returns(bool) {bool ok=super.transferFrom(a,b,n);callback();return ok;}
+  function transfer(address a,uint256 n) public override returns(bool) {bool ok=super.transfer(a,n);callback();return ok;}
+}
+contract MockNFT is ERC721 { constructor() ERC721('Chog','CHOG') {} function mint(address a,uint256 n) external {_mint(a,n);} function burn(uint256 n) external {require(ownerOf(n)==msg.sender);_burn(n);} }`}});
 // Monetary fixture values below are lots of 1,000 CHOG.
 const lots=n=>parseUnits(String(Number(n)*1000),18);
 async function fixture(){
@@ -99,7 +113,7 @@ test('draw counters ignore empty/canceled rounds, count 1–1 for both NFTs and 
   assert.equal((await f.arena.getRound(3)).cancelled,true);assert.equal(await f.arena.draws(1),1n);assert.equal(await f.arena.draws(2),1n);
 }finally{await f.close();}});
 
-// These two tests document unresolved protocol attacks, rather than fixes.
+// This test documents an unresolved protocol attack, rather than a fix.
 test('SEC-01: an unstaked holder malformed ballot can veto a fully revealed honest majority',async()=>{const f=await fixture();try{
   const a=await f.commit(1,0,lots(10)),b=await f.commit(2,0,lots(30)),c=await f.commit(3,1,lots(60));
   const attacker=await f.signers[4].getAddress();
@@ -115,13 +129,66 @@ test('SEC-01: an unstaked holder malformed ballot can veto a fully revealed hone
   for(const [i,amount]of [[1,10],[2,30],[3,60]])assert.equal(await f.arena.payout(1,await f.signers[i].getAddress()),lots(amount));
 }finally{await f.close();}});
 
-test('SEC-02: two wallets staking the minimum each outvote a larger opposing stake',async()=>{const f=await fixture();try{
+test('accepted SEC-02 game rule: two minimum bets outvote a larger opposing bet',async()=>{const f=await fixture();try{
   const minimum=parseUnits('5000',18);
   await f.commit(1,0,lots(100));await f.commit(2,1,minimum);await f.commit(3,1,minimum);await f.finish();
   const r=await f.arena.getRound(1);assert.equal(r.winner,1n);assert.equal(r.votesB,2n);
   assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),0n);
   const a=await f.arena.payoutBreakdown(1,await f.signers[2].getAddress()),b=await f.arena.payoutBreakdown(1,await f.signers[3].getAddress());
   assert.equal(a.gross+b.gross,lots(100)+2n*minimum);
+}finally{await f.close();}});
+
+test('security: tax on incoming tokens rolls back both bank accounting and the entry',async()=>{const f=await fixture();try{
+  const zero='0x'+'00'.repeat(20),account=await f.signers[1].getAddress(),arena=await f.arena.getAddress(),balance=await f.token.balanceOf(account);
+  await(await f.token.configure(true,zero,zero,'0x')).wait();
+  await assert.rejects((async()=>{await(await f.arena.connect(f.signers[1]).commitVote(1,'0x'+'ab'.repeat(32),lots(10),0,'0x01',{gasLimit:500000})).wait();})());
+  assert.equal(await f.token.balanceOf(account),balance);assert.equal(await f.token.balanceOf(arena),0n);
+  assert.equal((await f.arena.entries(1,account)).committed,false);assert.equal((await f.arena.getRound(1)).committedCount,0n);
+  await(await f.token.configure(false,zero,zero,'0x')).wait();await f.commit(1,0,lots(10));
+}finally{await f.close();}});
+
+test('security: token callbacks cannot reenter deposits or payouts; failed payouts remain claimable',async()=>{const f=await fixture();try{
+  const zero='0x'+'00'.repeat(20),arena=await f.arena.getAddress(),account=await f.signers[1].getAddress();
+  await(await f.token.configure(false,zero,arena,f.arena.interface.encodeFunctionData('commitVote',[1,'0x'+'ab'.repeat(32),lots(5),0,'0x01']))).wait();
+  await f.commit(1,0,lots(10));assert.equal(await f.token.callbackSucceeded(),false);assert.equal(await f.token.callbackFailure(),signatureId('ReentrancyGuardReentrantCall()').slice(0,10));
+  await f.commit(2,0,lots(20));await f.commit(3,1,lots(30));await f.finish();
+  const p=await f.arena.payoutBreakdown(1,account),bank=await f.token.balanceOf(arena);
+  await(await f.token.configure(false,arena,zero,'0x')).wait();
+  await assert.rejects((async()=>{await(await f.arena.connect(f.signers[1]).claim(1,{gasLimit:500000})).wait();})());
+  assert.equal((await f.arena.entries(1,account)).claimed,false);assert.equal(await f.arena.treasuryCredit(),0n);assert.equal(await f.token.balanceOf(arena),bank);
+  await(await f.token.configure(false,zero,arena,f.arena.interface.encodeFunctionData('claim',[1]))).wait();
+  await(await f.arena.connect(f.signers[1]).claim(1,{gasLimit:500000})).wait();
+  assert.equal(await f.token.callbackFailure(),signatureId('ReentrancyGuardReentrantCall()').slice(0,10));
+  assert.equal(await f.token.balanceOf(arena),bank-p.amount);assert.equal(await f.arena.treasuryCredit(),p.fee);
+}finally{await f.close();}});
+
+test('security: burning participating NFTs cannot prevent settlement or lock the other NFT',async()=>{const f=await fixture();try{
+  await f.commit(1,0,lots(10));await f.commit(2,0,lots(20));await f.commit(3,1,lots(30));
+  await(await f.nft.burn(1)).wait();await(await f.nft.connect(f.signers[4]).burn(2)).wait();
+  await f.finish();assert.equal((await f.arena.getRound(1)).settled,true);assert.equal(await f.arena.tokenRound(1),0n);assert.equal(await f.arena.tokenRound(2),0n);
+  assert.equal(await f.arena.points(1),1n);assert.ok(await f.arena.payout(1,await f.signers[1].getAddress())>0n);
+}finally{await f.close();}});
+
+test('security: deterministic payout matrix never spends another round bank or creates fees on refunds',async()=>{const f=await fixture();try{
+  let seed=713,expectedDust=0n;
+  const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return BigInt(seed);};
+  for(let roundId=1;roundId<=8;roundId++){
+    if(roundId>1){await(await f.arena.createChallenge(1)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(await f.arena.challengeCount(),2)).wait();}
+    const sides=roundId===1?[0,0,0]:roundId===2?[0,1,1]:roundId===3?[0,1]:[Number(random()%2n),Number(random()%2n),Number(random()%2n)];
+    const amounts=sides.map(()=>parseUnits('5000',18)+random());
+    for(let j=0;j<sides.length;j++)await f.commit(j+1,sides[j],amounts[j]);
+    await f.finish();const r=await f.arena.getRound(roundId);let grossTotal=0n,fees=0n;
+    for(let j=sides.length-1;j>=0;j--){
+      const account=await f.signers[j+1].getAddress(),p=await f.arena.payoutBreakdown(roundId,account);grossTotal+=p.gross;fees+=p.fee;
+      if(r.refund){assert.equal(p.gross,amounts[j]);assert.equal(p.fee,0n);}else if(sides[j]!==Number(r.winner))assert.equal(p.amount,0n);
+      if(p.amount>0n){await(await f.arena.connect(f.signers[j+1]).claim(roundId)).wait();await assert.rejects(f.arena.connect(f.signers[j+1]).claim.staticCall(roundId));}
+    }
+    const total=amounts.reduce((a,b)=>a+b,0n),dust=total-grossTotal;
+    assert.ok(dust>=0n && dust<BigInt(sides.length));expectedDust+=dust;
+    assert.equal(await f.arena.treasuryCredit(),fees);
+    if(fees)await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();
+    assert.equal(await f.token.balanceOf(await f.arena.getAddress()),expectedDust);
+  }
 }finally{await f.close();}});
 
 test('security: replayed commitments cannot open another wallet or round, and owner cannot redirect claims',async()=>{const f=await fixture();try{

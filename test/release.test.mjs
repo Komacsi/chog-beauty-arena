@@ -9,6 +9,7 @@ const root=new URL('..',import.meta.url);
 
 test('unresolved security findings block funded server and keeper before opening the demo database',async()=>{
   assert.equal(RELEASE_STATUS.realFundsEnabled,false);assert.doesNotThrow(()=>assertLiveReleaseAllowed(''));
+  assert.ok(!RELEASE_STATUS.blockingFindings.includes('SEC-02'));assert.ok(RELEASE_STATUS.acceptedRisks.includes('SEC-02'));
   const dir=await mkdtemp(join(tmpdir(),'chog-release-'));
   try{
     for(const script of ['server.mjs','scripts/keeper.mjs']){
