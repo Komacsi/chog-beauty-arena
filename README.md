@@ -29,8 +29,8 @@ Choices are encrypted locally using drand quicknet timelock encryption (`tlock-j
 2. A participant approves CHOG if needed, then submits `commitVote`. Choices with and without bets are encrypted. The commitment binds the chain, arena address, round, voter, token ID, side, amount and random 256-bit salt.
 3. Wallet addresses, bet amounts and the total deposited pool are public. Neither side totals nor chosen sides are published during acceptance. Padded plaintext prevents ciphertext-length leaks between token IDs of different lengths.
 4. The drand unlock time is at least five minutes after acceptance closes, with a one-hour opening window. This margin reduces wall-clock/block-timestamp boundary risks.
-5. A separate keeper fetches a signed drand beacon, verifies it against the pinned production quicknet key, decrypts the onchain ciphertexts and submits `revealVote` transactions. Anyone may relay matching reveals, but rewards always belong to the original participant.
-6. No second participant action is required for opening. Once all choices open, anyone can settle. If opening is incomplete at the deadline, the round is cancelled; all bets are refundable in full, no fees or NFT points are awarded. Partial tallies never decide the winner.
+5. A separate keeper fetches a signed drand beacon, verifies it against the pinned production quicknet key, decrypts the onchain ciphertexts and submits `revealVote` transactions. Only the immutable authorized revealer can submit matching reveals; participants cannot reveal manually. Rewards remain bound to the original participant. The service is trusted to reveal every valid published ciphertext and can influence results by omitting votes.
+6. No second participant action is required for opening. Once all choices open, anyone can settle. At the opening deadline, only revealed votes and their pools count. Unopened entries are excluded and their own bets are refundable in full without fees; they cannot cancel the valid result. If no votes open, the result is 0–0 with full refunds and no recorded draw. Anyone can settle or claim their own payout/refund; only the service can reveal.
 
 After closing, choices become publicly readable. This provides pre-close choice privacy, not anonymous transfers or permanent secrecy. Security depends on the drand threshold network not releasing future beacons early. The frontend must also serve the reviewed encryption code. A participant can voluntarily disclose their own choice.
 
@@ -48,7 +48,7 @@ fee   = floor(gross * 100 / 10000)
 net   = gross - fee
 ```
 
-Fees accrue only when the participant claims. The treasury withdraws its accrued fees separately. Draws, one-sided pools and cancelled rounds return each bet in full without fees. Refunds for one-sided pools do not erase a valid winning NFT's point. Integer rounding may leave tiny residual amounts; there is no owner function to sweep participant funds.
+Fees accrue only when the participant claims. The treasury withdraws its accrued fees separately. Draws and one-sided pools return each bet in full without fees. Unopened entries receive their own bets back without fees, separately from the valid pools. Historical cancelled demo rounds retain their original refunds. Refunds for one-sided pools do not erase a valid winning NFT's point. Integer rounding may leave tiny residual amounts; there is no owner function to sweep participant funds.
 
 Example: winning bets 10,000 and 30,000, losing pool 60,000 CHOG. Gross payouts are 25,000 and 75,000; fees are 250 and 750; net payouts are 24,750 and 74,250 CHOG. A winning holder who participated without a bet gets an NFT voting result, but no token payout.
 
@@ -64,7 +64,7 @@ npm start
 
 Open http://localhost:3000. Demo identities, holder roles and balances are simulated, but the timelock cryptography and beacon verification are real. Demo ciphertexts are automatically opened by the server.
 
-Copy `.env.example` to `.env` for optional settings. Demo rounds default to two minutes, followed by a five-second unlock margin. `DEMO_FAST_ROUNDS=0` simulates the 24-hour window instead; the live contract always uses 24 hours and a five-minute margin. A future beacon cannot be fast-forwarded. An accepted battle cannot be manually canceled; incomplete automatic opening triggers the protocol's full refund at its deadline. `ARENA_STATE_DIR` optionally selects an isolated SQLite state directory.
+Copy `.env.example` to `.env` for optional settings. Demo rounds default to two minutes, followed by a five-second unlock margin. `DEMO_FAST_ROUNDS=0` simulates the 24-hour window instead; the live contract always uses 24 hours and a five-minute margin. A future beacon cannot be fast-forwarded. An accepted battle cannot be manually canceled; at the opening deadline, unopened entries are excluded and individually refundable. Previously created v3 demo rounds retain their cancellation rules; new v4 rounds use individual exclusion/refunds. `ARENA_STATE_DIR` optionally selects an isolated SQLite state directory.
 
 ```sh
 npm run check
@@ -77,18 +77,18 @@ Previously settled demo records retain their recorded payouts. On migration to h
 
 ## Live deployment and keeper
 
-**Security review: real-funds launch is blocked.** See [SECURITY_REVIEW.md](SECURITY_REVIEW.md). Invalid-ciphertext sabotage, keeper operational readiness and external-asset validation remain release conditions. Multi-wallet vote manipulation (SEC-02) is explicitly accepted by the creator and is not a launch blocker. The official server, keeper and setup page reject real-token deployment while the release guard is active. The guard is not an onchain defense and does not stop a third party from deploying source. No live deployment or real token transactions have been performed by the agent. This revision requires a newly deployed contract with the holder-matchmaking ABI; older deployments are not compatible.
+**Security review: real-funds launch is blocked.** See [SECURITY_REVIEW.md](SECURITY_REVIEW.md). The former invalid-ciphertext veto is removed under the authorized-service trust model. Keeper operational readiness and external-asset validation remain release conditions. Multi-wallet vote manipulation (SEC-02) is explicitly accepted by the creator and is not a launch blocker. The official server, keeper and setup page reject real-token deployment while the release guard is active. The guard is not an onchain defense and does not stop a third party from deploying source. No live deployment or real token transactions have been performed by the agent. This revision requires a newly deployed contract with the holder-matchmaking ABI; older deployments are not compatible.
 
-1. Review and test the prototype, including its cancellation/invalid-ciphertext limitation.
-2. Open `/setup`, connect a Monad wallet and deploy the encrypted arena. Deployment costs MON gas. Save the address and deployment block shown in the interface.
+1. Review and test the prototype and its authorized-service trust model. Create a separate keeper wallet locally; set its public address as ARENA_REVEALER_ADDRESS before deployment.
+2. Once the release guard is lifted, open `/setup`, connect a Monad wallet and deploy the encrypted arena. The automatic revealer address is immutable and cannot be rotated by owner. Deployment costs MON gas. Save the address and deployment block shown in the interface.
 3. Set `ARENA_CONTRACT_ADDRESS` and `KEEPER_FROM_BLOCK` in local `.env`.
-4. Configure `KEEPER_PRIVATE_KEY` locally for a separate wallet funded with MON for gas. Never send keys in chat, commit them, or put them in browser code. This wallet has no authority to redirect rewards or withdraw the escrow.
+4. Configure `KEEPER_PRIVATE_KEY` locally for a separate wallet funded with MON for gas. Never send keys in chat, commit them, or put them in browser code. This wallet cannot directly withdraw participant banks or change a committed ballot, but it is trusted for complete reveals and can influence results/payout allocation by omitting votes. If its key is lost, after the deadline participants can settle and refund unopened entries without that key.
 5. Run `npm start` and, as a separate continuously running process, `npm run keeper`. The keeper scans onchain commitment events and pays opening/settlement gas. It retries unavailable RPC/beacon services. It does not have to receive participants' private secrets beforehand.
 6. Holders create and accept battle requests through their profiles and the lobby. After automatic opening/settlement, participants claim rewards or refunds. The treasury claims fees separately.
 
 The keeper source is implemented, but no funded production keeper is running. Event queries use ranges of at most 100 blocks, RPC calls time out after 15 seconds and receipt waits after 30 seconds. A timeout does not cancel a broadcast transaction. Hosting, monitoring, durable event/transaction indexing, pending nonce recovery and deployment remain required. API scans coalesce concurrent requests, including fresh requests, with a minimum refresh interval. One-wallet voting is not proof of one human; multiple-wallet manipulation is outside the choice-privacy guarantee.
 
-Opt-in security checks: node scripts/security-assets.mjs inventories public asset bytecode/proxy slots; node scripts/security-fork.mjs runs a disposable local EVM integration against a current Monad snapshot. Upstream RPC is restricted to read methods; all fork transactions stay local. See security/ for the recorded snapshots and the report for limitations. These network-dependent scripts are outside ordinary CI.
+Opt-in security checks: node scripts/security-assets.mjs inventories public asset bytecode/proxy slots; node scripts/security-fork.mjs runs a disposable local EVM integration against a current Monad snapshot, including an individually refunded malformed entry. A third CLI argument can pin the fork block. Upstream RPC is restricted to read methods; all fork transactions stay local. See security/ for the recorded snapshots and the report for limitations. These network-dependent scripts are outside ordinary CI.
 
 ## Addresses and NFT IDs
 

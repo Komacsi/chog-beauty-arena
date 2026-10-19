@@ -36,9 +36,9 @@ test('empty rounds do not count as draws; unstaked votes still qualify',()=>{
 });
 for(const side of [0,1])test(`one-sided bank with winner ${side} returns each stake in full`,()=>{const f=fixture();f.commit('a',side,lots(10));f.commit('b',side,lots(30));f.commit('c',1-side,0n);f.finish();assert.equal(d.payout(f.round,'a'),lots(10));assert.equal(d.payout(f.round,'b'),lots(30));assert.equal(f.state.fees,'0');assert.equal(f.round.winner,side);});
 test('unstaked winners return losing-side stakes without fees',()=>{const f=fixture();f.commit('a',0,0n);f.commit('b',0,0n);f.commit('c',1,lots(100));f.finish();assert.equal(d.payout(f.round,'c'),lots(100));assert.equal(f.state.points[f.round.nftA],1);});
-test('incomplete opening cancels the entire round and refunds also the unopened stake',()=>{
+test('incomplete opening refunds unopened bets and resolves only the valid votes',()=>{
   const f=fixture();f.commit('a',0,lots(10));f.commit('b',1,lots(30));f.reveal('a');assert.throws(()=>d.settle(f.state,f.round,f.round.unlockAt),/incomplete/);d.settle(f.state,f.round,f.round.revealEndsAt);
-  assert.equal(f.round.cancelled,true);assert.deepEqual(f.state.points,{});assert.deepEqual(f.state.draws,{});assert.equal(d.payout(f.round,'a'),lots(10));assert.equal(d.payout(f.round,'b'),lots(30));assert.equal(f.state.fees,'0');
+  assert.notEqual(f.round.cancelled,true);assert.equal(f.state.points[f.round.nftA],1);assert.deepEqual(f.state.draws,{});assert.equal(d.payout(f.round,'a'),lots(10));assert.equal(d.payout(f.round,'b'),lots(30));assert.equal(f.state.fees,'0');
 });
 test('per-winner rounding differs from deducting a fee from the common pool',()=>{
   const f=fixture(),minimum=parseUnits('5000',18),stake=minimum+17n;
@@ -48,8 +48,21 @@ test('per-winner rounding differs from deducting a fee from the common pool',()=
   assert.deepEqual(b,{gross:4n*stake,fee:4n*minimum/100n,amount:4n*stake-4n*minimum/100n});
   assert.equal((a.gross+b.gross)/100n,a.fee+b.fee+1n);
 });
+
+test('excluded funded demo entries are refunded outside the winners bank, with no fees',()=>{
+  const f=fixture();f.commit('a',0,lots(10));f.commit('b',0,lots(30));f.commit('c',1,lots(60));f.commit('bad',1,lots(20));
+  for(const id of ['a','b','c'])f.reveal(id);d.settle(f.state,f.round,f.round.revealEndsAt);
+  assert.equal(f.round.winner,0);assert.deepEqual(d.payoutBreakdown(f.round,'bad'),{gross:lots(20),fee:0n,amount:lots(20)});
+  assert.equal(d.payout(f.round,'a'),lots('24.75'));assert.equal(d.payout(f.round,'b'),lots('74.25'));assert.equal(d.payout(f.round,'c'),0n);
+  for(const id of ['bad','a','b'])d.claim(f.state,f.round,id);assert.equal(f.state.fees,lots(1).toString());
+});
+
+test('legacy v3 unfinished demo rounds retain cancellation and refund rules',()=>{
+  const f=fixture();f.round.protocolVersion=3;f.commit('a',0,lots(10));f.commit('b',1,lots(20));f.reveal('a');d.settle(f.state,f.round,f.round.revealEndsAt);
+  assert.equal(f.round.cancelled,true);assert.deepEqual(f.state.points,{});assert.equal(d.payout(f.round,'a'),lots(10));assert.equal(d.payout(f.round,'b'),lots(20));
+});
 test('historical settled records keep their recorded payouts and fees',()=>{
-  const f=fixture();f.round.revealEndsAt=undefined;f.round.settled=true;f.round.refund=false;f.round.winner=0;f.round.poolA=lots(40).toString();f.round.poolB=lots(60).toString();f.round.distributable=lots(99).toString();f.round.entries.a={amount:lots(10).toString(),side:0,claimed:false};f.state.fees=lots(1).toString();assert.equal(d.payout(f.round,'a'),lots('24.75'));d.claim(f.state,f.round,'a');assert.equal(f.state.fees,lots(1).toString());
+  const f=fixture();f.round.protocolVersion=1;f.round.revealEndsAt=undefined;f.round.settled=true;f.round.refund=false;f.round.winner=0;f.round.poolA=lots(40).toString();f.round.poolB=lots(60).toString();f.round.distributable=lots(99).toString();f.round.entries.a={amount:lots(10).toString(),side:0,claimed:false};f.state.fees=lots(1).toString();assert.equal(d.payout(f.round,'a'),lots('24.75'));d.claim(f.state,f.round,'a');assert.equal(f.state.fees,lots(1).toString());
 });
 
 test('demo minimum rejects subminimum stakes without debiting balances; migration preserves history and runs once',()=>{

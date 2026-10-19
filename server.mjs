@@ -34,6 +34,12 @@ const rpcConnection=new FetchRequest(RPC_URL);rpcConnection.timeout=15000;
 const provider=live?new JsonRpcProvider(rpcConnection,CHAIN_ID,{batchMaxCount:1}):null;
 const arena=live?new Contract(arenaAddress,artifact.abi,provider):null;
 const treasury='0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D';
+const revealerAddress=live?await arena.revealer():process.env.ARENA_REVEALER_ADDRESS || '';
+if(live){
+  const [token,collection,feeRecipient]=await Promise.all([arena.chog(),arena.collection(),arena.treasury()]);
+  if(token.toLowerCase()!==CHOG_TOKEN.toLowerCase() || collection.toLowerCase()!==COLLECTION.toLowerCase() || feeRecipient.toLowerCase()!==treasury.toLowerCase())throw Error('Arena assets or treasury do not match this application');
+  if(process.env.ARENA_REVEALER_ADDRESS && revealerAddress.toLowerCase()!==process.env.ARENA_REVEALER_ADDRESS.toLowerCase())throw Error('Arena automatic revealer does not match configuration');
+}
 const port=Number(process.env.PORT || 3000);
 function publicRound(r){if(!r)return null;const {entries,...rest}=r;return rest;}
 const readLive=createLiveCache(async()=>{
@@ -41,7 +47,7 @@ const readLive=createLiveCache(async()=>{
   const history=[],rounds=[],challenges=[];const points={},losses={};
   for(let id=1;id<=current;id++) {
     const r=await arena.getRound(id);
-    const item={id,nftA:Number(r.nftA),nftB:Number(r.nftB),endsAt:Number(r.endsAt)*1000,unlockAt:Number(r.unlockAt)*1000,revealEndsAt:Number(r.revealEndsAt)*1000,beaconRound:Number(r.beaconRound),committedCount:Number(r.committedCount),revealedCount:Number(r.revealedCount),totalCommitted:r.totalCommitted.toString(),protocolVersion:3,votesA:Number(r.votesA),votesB:Number(r.votesB),poolA:r.poolA.toString(),poolB:r.poolB.toString(),settled:r.settled,winner:Number(r.winner),refund:r.refund,cancelled:r.cancelled};
+    const item={id,nftA:Number(r.nftA),nftB:Number(r.nftB),endsAt:Number(r.endsAt)*1000,unlockAt:Number(r.unlockAt)*1000,revealEndsAt:Number(r.revealEndsAt)*1000,beaconRound:Number(r.beaconRound),committedCount:Number(r.committedCount),revealedCount:Number(r.revealedCount),totalCommitted:r.totalCommitted.toString(),protocolVersion:4,votesA:Number(r.votesA),votesB:Number(r.votesB),poolA:r.poolA.toString(),poolB:r.poolB.toString(),settled:r.settled,winner:Number(r.winner),refund:r.refund,cancelled:r.cancelled};
     if(item.settled){history.push(item);if(!item.cancelled && item.winner!==2){const token=item.winner===0?item.nftA:item.nftB,loser=item.winner===0?item.nftB:item.nftA;points[token]=(points[token] || 0)+1;losses[loser]=(losses[loser] || 0)+1;}}
     if(!item.settled)rounds.push(item);
   }
@@ -85,7 +91,7 @@ const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connec
         id=state.demoAccounts[persona];demo.user(state,id).holder=demo.ownedTokens(state,id).length>0;
       }
       if(!live)await tick();
-      if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',release:RELEASE_STATUS,collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,arenaAddress,feeBps:FEE_BPS,minStake:MIN_STAKE.toString(),nfts,abi:artifact.abi,demoFastRounds,privacy:'timelock'});
+      if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',release:RELEASE_STATUS,collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,revealerAddress,arenaAddress,feeBps:FEE_BPS,minStake:MIN_STAKE.toString(),nfts,abi:artifact.abi,demoFastRounds,privacy:'timelock'});
       if(req.method==='GET' && url.pathname==='/api/deployment')return RELEASE_STATUS.realFundsEnabled?json(res,200,artifact):json(res,403,{error:RELEASE_STATUS.message});
       if(req.method==='GET' && url.pathname==='/api/state') {
         const data=live?await readLive(url.searchParams.get('fresh')==='1'):{rounds:state.rounds.filter(r=>!r.settled).map(publicRound),challenges:state.challenges.filter(c=>!c.closed).map(c=>({...c,valid:state.ownership[c.tokenId]===c.creator})),history:state.rounds.filter(r=>r.settled).map(publicRound),points:state.points,losses:state.losses,draws:state.draws};

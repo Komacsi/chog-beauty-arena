@@ -4,6 +4,9 @@ import ganache from 'ganache';
 import {BrowserProvider,ContractFactory,parseUnits,toUtf8Bytes,id as signatureId} from 'ethers';
 import {compile} from '../scripts/compile.mjs';
 import {makeCommitment,makeSalt} from '../lib/commitments.mjs';
+import {readFile} from 'node:fs/promises';
+import {sealBallot,drandClient} from '../lib/timelock.mjs';
+import {processRound} from '../lib/keeper.mjs';
 const compiled=compile({'Mocks.sol':{content:`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
@@ -26,11 +29,11 @@ contract MockToken is ERC20 {
 contract MockNFT is ERC721 { constructor() ERC721('Chog','CHOG') {} function mint(address a,uint256 n) external {_mint(a,n);} function burn(uint256 n) external {require(ownerOf(n)==msg.sender);_burn(n);} }`}});
 // Monetary fixture values below are lots of 1,000 CHOG.
 const lots=n=>parseUnits(String(Number(n)*1000),18);
-async function fixture(){
-  const transport=ganache.provider({logging:{quiet:true},chain:{hardfork:'shanghai'},wallet:{totalAccounts:6}}),provider=new BrowserProvider(transport);provider.pollingInterval=10;
+async function fixture(historical=false){
+  const transport=ganache.provider({logging:{quiet:true},chain:{hardfork:'shanghai',...(historical?{time:new Date((1692803367-86400-300)*1000)}:{})},...(historical?{miner:{timestampIncrement:0}}:{}),wallet:{totalAccounts:6}}),provider=new BrowserProvider(transport);provider.pollingInterval=10;
   const signers=await Promise.all(Array.from({length:6},(_,i)=>provider.getSigner(i)));
   async function deploy(file,name,args=[]){const a=compiled[file][name],c=await new ContractFactory(a.abi,'0x'+a.evm.bytecode.object,signers[0]).deploy(...args);await c.waitForDeployment();return c;}
-  const token=await deploy('Mocks.sol','MockToken'),nft=await deploy('Mocks.sol','MockNFT'),arena=await deploy('BeautyArena.sol','BeautyArena',[await token.getAddress(),await nft.getAddress(),await signers[5].getAddress()]);
+  const token=await deploy('Mocks.sol','MockToken'),nft=await deploy('Mocks.sol','MockNFT'),arena=await deploy('BeautyArena.sol','BeautyArena',[await token.getAddress(),await nft.getAddress(),await signers[5].getAddress(),await signers[4].getAddress()]);
   for(let i=0;i<5;i++){await(await token.mint(await signers[i].getAddress(),lots(1000))).wait();await(await token.connect(signers[i]).approve(await arena.getAddress(),lots(1000))).wait();}
   for(const [id,owner]of [[1,0],[2,4],[3,0],[4,4]])await(await nft.mint(await signers[owner].getAddress(),id)).wait();
   await(await arena.createChallenge(1)).wait();await(await arena.connect(signers[4]).acceptChallenge(1,2)).wait();
@@ -49,9 +52,9 @@ test('contract commitments contain no side or per-NFT totals during betting',asy
   await assert.rejects(f.arena.connect(f.signers[1]).commitVote.staticCall(1,makeCommitment(b),1,0,'0x01'));
 }finally{await f.close();}});
 test('contract disallows early opening, late commitments and changing the bound NFT',async()=>{const f=await fixture();try{
-  const {b}=await f.commit(1,0,lots(10));await assert.rejects(f.arena.revealVote.staticCall(1,b.account,b.side,b.tokenId,b.salt));
-  const r=await f.arena.getRound(1);await f.goto(r.endsAt);await assert.rejects(f.arena.connect(f.signers[2]).commitVote.staticCall(1,makeCommitment(b),1,0,'0x01'));await assert.rejects(f.arena.revealVote.staticCall(1,b.account,b.side,b.tokenId,b.salt));
-  await f.goto(r.unlockAt);await assert.rejects(f.arena.revealVote.staticCall(1,b.account,1,2,b.salt));await assert.rejects(f.arena.revealVote.staticCall(1,b.account,0,2,b.salt));await f.reveal(b);await assert.rejects(f.arena.revealVote.staticCall(1,b.account,0,1,b.salt));
+  const {b}=await f.commit(1,0,lots(10));await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(1,b.account,b.side,b.tokenId,b.salt));
+  const r=await f.arena.getRound(1);await f.goto(r.endsAt);await assert.rejects(f.arena.connect(f.signers[2]).commitVote.staticCall(1,makeCommitment(b),1,0,'0x01'));await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(1,b.account,b.side,b.tokenId,b.salt));
+  await f.goto(r.unlockAt);await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(1,b.account,1,2,b.salt));await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(1,b.account,0,2,b.salt));await f.reveal(b);await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(1,b.account,0,1,b.salt));
 }finally{await f.close();}});
 test('relayer opens choices; only original winners claim gross minus their individual fee',async()=>{const f=await fixture();try{
   await f.commit(1,0,lots(10));await f.commit(2,0,lots(30));await f.commit(3,1,lots(60));await f.finish();
@@ -64,9 +67,9 @@ test('holder no-stake eligibility is checked at commit and cannot be reused afte
   await f.commit(0,0,0n,1);await(await f.nft.transferFrom(await f.signers[0].getAddress(),await f.signers[1].getAddress(),1)).wait();await assert.rejects(f.arena.connect(f.signers[1]).commitVote.staticCall(1,makeCommitment(b),0,1,'0x01'));
   await f.commit(2,1,lots(20));await f.finish();assert.equal((await f.arena.getRound(1)).refund,true);assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),lots(20));assert.equal(await f.arena.treasuryCredit(),0n);
 }finally{await f.close();}});
-test('incomplete automatic opening cancels rather than trusting a selective tally',async()=>{const f=await fixture();try{
+test('incomplete opening excludes unopened votes and refunds them without canceling valid results',async()=>{const f=await fixture();try{
   const a=await f.commit(1,0,lots(10));await f.commit(2,1,lots(30));let r=await f.arena.getRound(1);await f.goto(r.unlockAt);await f.reveal(a.b);await assert.rejects(f.arena.settle.staticCall(1));await f.goto(r.revealEndsAt);await(await f.arena.settle(1)).wait();r=await f.arena.getRound(1);
-  assert.equal(r.cancelled,true);assert.equal(r.refund,true);assert.equal(await f.arena.points(1),0n);assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),lots(10));assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),lots(30));assert.equal(await f.arena.treasuryCredit(),0n);
+  assert.equal(r.cancelled,false);assert.equal(r.refund,true);assert.equal(await f.arena.points(1),1n);assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),lots(10));assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),lots(30));assert.equal(await f.arena.treasuryCredit(),0n);
 }finally{await f.close();}});
 test('one-sided banks return all stakes in either winning direction',async()=>{const f=await fixture();try{
   for(const side of [0,1]){if(side){await(await f.arena.createChallenge(1)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(2,2)).wait();}await f.commit(1,side,lots(10));await f.commit(2,side,lots(30));await f.commit(0,1-side,0n,1);await f.finish();const id=side+1;assert.equal(await f.arena.payout(id,await f.signers[1].getAddress()),lots(10));assert.equal(await f.arena.payout(id,await f.signers[2].getAddress()),lots(30));assert.equal(await f.arena.treasuryCredit(),0n);}
@@ -101,7 +104,7 @@ test('transferring a pending NFT prevents stale acceptance; active lock survives
   await f.goto((await f.arena.getRound(2)).unlockAt);await(await f.arena.settle(2)).wait();await(await f.arena.connect(f.signers[2]).createChallenge(3)).wait();
 }finally{await f.close();}});
 
-test('draw counters ignore empty/canceled rounds, count 1–1 for both NFTs and cannot double count',async()=>{const f=await fixture();try{
+test('draw counters use only revealed votes, ignore empty rounds and cannot double count',async()=>{const f=await fixture();try{
   await f.finish();assert.equal(await f.arena.draws(1),0n);assert.equal(await f.arena.draws(2),0n);
   await(await f.arena.createChallenge(1)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(2,2)).wait();
   await f.commit(1,0,lots(10));await f.commit(2,1,lots(30));await f.finish();
@@ -110,23 +113,25 @@ test('draw counters ignore empty/canceled rounds, count 1–1 for both NFTs and 
   await(await f.arena.createChallenge(1)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(3,2)).wait();
   const a=await f.commit(1,0,lots(10)),b=await f.commit(2,1,lots(30));await f.commit(3,0,lots(5));const r=await f.arena.getRound(3);
   await f.goto(r.unlockAt);await f.reveal(a.b);await f.reveal(b.b);await f.goto(r.revealEndsAt);await(await f.arena.settle(3)).wait();
-  assert.equal((await f.arena.getRound(3)).cancelled,true);assert.equal(await f.arena.draws(1),1n);assert.equal(await f.arena.draws(2),1n);
+  assert.equal((await f.arena.getRound(3)).cancelled,false);assert.equal(await f.arena.draws(1),2n);assert.equal(await f.arena.draws(2),2n);
 }finally{await f.close();}});
 
-// This test documents an unresolved protocol attack, rather than a fix.
-test('SEC-01: an unstaked holder malformed ballot can veto a fully revealed honest majority',async()=>{const f=await fixture();try{
+// Malformed entries can delay finalization until the deadline, but cannot cancel the valid result.
+test('SEC-01 regression: an unstaked malformed ballot cannot veto a revealed honest majority',async()=>{const f=await fixture();try{
   const a=await f.commit(1,0,lots(10)),b=await f.commit(2,0,lots(30)),c=await f.commit(3,1,lots(60));
-  const attacker=await f.signers[4].getAddress();
-  await(await f.arena.connect(f.signers[4]).commitVote(1,'0x'+'ab'.repeat(32),0n,2,'0x01')).wait();
+  const attacker=await f.signers[0].getAddress();
+  await(await f.arena.connect(f.signers[0]).commitVote(1,'0x'+'ab'.repeat(32),0n,1,'0x01')).wait();
   const r=await f.arena.getRound(1);await f.goto(r.unlockAt);
   for(const entry of [a,b,c])await f.reveal(entry.b);
   assert.equal((await f.arena.getRound(1)).votesA,2n);
   await assert.rejects(f.arena.settle.staticCall(1));
   await f.goto(r.revealEndsAt);await(await f.arena.settle(1)).wait();
-  assert.equal((await f.arena.getRound(1)).cancelled,true);
-  assert.equal(await f.arena.points(1),0n);
+  assert.equal((await f.arena.getRound(1)).cancelled,false);
+  assert.equal(await f.arena.points(1),1n);
   assert.equal(await f.arena.payout(1,attacker),0n);
-  for(const [i,amount]of [[1,10],[2,30],[3,60]])assert.equal(await f.arena.payout(1,await f.signers[i].getAddress()),lots(amount));
+  assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),lots('24.75'));
+  assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),lots('74.25'));
+  assert.equal(await f.arena.payout(1,await f.signers[3].getAddress()),0n);
 }finally{await f.close();}});
 
 test('accepted SEC-02 game rule: two minimum bets outvote a larger opposing bet',async()=>{const f=await fixture();try{
@@ -136,6 +141,54 @@ test('accepted SEC-02 game rule: two minimum bets outvote a larger opposing bet'
   assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),0n);
   const a=await f.arena.payoutBreakdown(1,await f.signers[2].getAddress()),b=await f.arena.payoutBreakdown(1,await f.signers[3].getAddress());
   assert.equal(a.gross+b.gross,lots(100)+2n*minimum);
+}finally{await f.close();}});
+
+test('only the immutable service can reveal; participants cannot selectively rescue an invalid ciphertext',async()=>{const f=await fixture();try{
+  const a=await f.commit(1,0,lots(10)),b=await f.commit(2,0,lots(30)),c=await f.commit(3,1,lots(60));
+  const attacker=await f.commit(0,1,lots(20));const r=await f.arena.getRound(1);await f.goto(r.unlockAt);
+  for(const ballot of [a.b,b.b,c.b])await f.reveal(ballot);
+  assert.equal(await f.arena.revealer(),await f.signers[4].getAddress());
+  for(const i of [0,1,2,3,5])await assert.rejects(f.arena.connect(f.signers[i]).revealVote.staticCall(1,attacker.b.account,1,2,attacker.b.salt),/Automatic revealer only/);
+  await f.goto(r.revealEndsAt);await(await f.arena.connect(f.signers[2]).settle(1)).wait();
+  assert.equal((await f.arena.getRound(1)).winner,0n);assert.equal((await f.arena.getRound(1)).cancelled,false);
+  assert.deepEqual([...await f.arena.payoutBreakdown(1,attacker.b.account)],[lots(20),0n,lots(20)]);
+  // Refunding the excluded entry first must not reduce winners' bank or fees.
+  await(await f.arena.claim(1)).wait();
+  assert.equal(await f.token.balanceOf(await f.arena.getAddress()),lots(100));
+  for(const i of [1,2])await(await f.arena.connect(f.signers[i]).claim(1)).wait();
+  assert.equal(await f.arena.treasuryCredit(),lots(1));await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();
+  assert.equal(await f.token.balanceOf(await f.arena.getAddress()),0n);
+  await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(1,attacker.b.account,1,2,attacker.b.salt));
+  await assert.rejects(f.arena.claim.staticCall(1));
+}finally{await f.close();}});
+
+test('complete service outage refunds all funded entries with no result statistics or fees',async()=>{const f=await fixture();try{
+  await f.commit(1,0,lots(10));await f.commit(2,1,lots(20));await f.commit(0,0,0n,1);
+  const r=await f.arena.getRound(1);await f.goto(r.revealEndsAt);await(await f.arena.settle(1)).wait();
+  const settled=await f.arena.getRound(1);assert.equal(settled.winner,2n);assert.equal(settled.votesA+settled.votesB,0n);
+  assert.equal(await f.arena.points(1),0n);assert.equal(await f.arena.draws(1),0n);
+  for(const i of [1,2])await(await f.arena.connect(f.signers[i]).claim(1)).wait();
+  assert.equal(await f.arena.treasuryCredit(),0n);assert.equal(await f.token.balanceOf(await f.arena.getAddress()),0n);assert.equal(await f.arena.tokenAvailable(1),true);
+}finally{await f.close();}});
+
+test('automatic service decrypts published ballots and excludes garbage without a second participant transaction',async()=>{const f=await fixture(true);try{
+  const beacon=JSON.parse(await readFile(new URL('./fixtures/drand-round-1.json',import.meta.url),'utf8'));
+  const client=drandClient(async()=>({ok:true,json:async()=>beacon})),r=await f.arena.getRound(1);assert.equal(r.beaconRound,1n);
+  await f.commit(0,1,lots(20)); // Deliberately invalid ciphertext before the valid records.
+  for(const [i,side,amount]of [[1,0,lots(10)],[2,0,lots(30)],[3,1,lots(60)]]){
+    const ballot={arena:await f.arena.getAddress(),chainId:1337,roundId:1,account:await f.signers[i].getAddress(),side,tokenId:side?2:1,amount:amount.toString()};
+    const sealed=await sealBallot(ballot,1,client);
+    await(await f.arena.connect(f.signers[i]).commitVote(1,sealed.commitment,amount,0,toUtf8Bytes(sealed.sealedChoice))).wait();
+  }
+  await f.goto(r.unlockAt);
+  const options={arena:f.arena.connect(f.signers[4]),provider:f.provider,fromBlock:0,client,id:1};
+  const opened=await processRound(options);assert.equal(opened.phase,'opening');assert.equal(opened.revealed,3);assert.equal(opened.failed,1);
+  assert.equal((await f.arena.getRound(1)).votesA,2n);assert.equal((await f.arena.getRound(1)).votesB,1n);
+  await f.goto(r.revealEndsAt);await new Promise(done=>setTimeout(done,300));
+  assert.equal((await processRound(options)).phase,'settled');
+  assert.equal((await f.arena.getRound(1)).winner,0n);assert.equal((await f.arena.getRound(1)).cancelled,false);
+  assert.equal(await f.arena.payout(1,await f.signers[0].getAddress()),lots(20));
+  assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),lots('24.75'));
 }finally{await f.close();}});
 
 test('security: tax on incoming tokens rolls back both bank accounting and the entry',async()=>{const f=await fixture();try{
@@ -197,8 +250,8 @@ test('security: replayed commitments cannot open another wallet or round, and ow
   const secondBank=parseUnits('5000',18);
   await(await f.arena.connect(f.signers[1]).commitVote(2,makeCommitment(b),secondBank,0,'0x01')).wait();
   await f.goto((await f.arena.getRound(2)).unlockAt);
-  await assert.rejects(f.arena.revealVote.staticCall(2,b.account,b.side,b.tokenId,b.salt));
-  await assert.rejects(f.arena.revealVote.staticCall(1,await f.signers[4].getAddress(),b.side,b.tokenId,b.salt));
+  await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(2,b.account,b.side,b.tokenId,b.salt));
+  await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(1,await f.signers[4].getAddress(),b.side,b.tokenId,b.salt));
   for(const ballot of f.ballots)await f.reveal(ballot);
   await(await f.arena.settle(1)).wait();
   assert.equal(await f.arena.owner(),await f.signers[0].getAddress());

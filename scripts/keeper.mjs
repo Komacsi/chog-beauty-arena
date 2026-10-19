@@ -15,6 +15,7 @@ if(Number((await provider.getNetwork()).chainId)!==CHAIN_ID)throw Error('Keeper 
 const signer=new Wallet(key,provider);
 const artifact=JSON.parse(await readFile(resolve(import.meta.dirname,'../artifacts/BeautyArena.json'),'utf8'));
 const arena=new Contract(address,artifact.abi,signer),client=drandClient();
+if((await arena.revealer()).toLowerCase()!==signer.address.toLowerCase())throw Error('Keeper wallet is not the immutable automatic revealer of this arena');
 console.log(`Automatic opening keeper: ${signer.address}; network ${CHAIN_ID}. The keeper pays MON gas and cannot redirect participant payouts.`);
 let stopped=false;process.on('SIGINT',()=>{stopped=true;});process.on('SIGTERM',()=>{stopped=true;});
 while(!stopped){

@@ -12,6 +12,8 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     IERC20 public immutable chog;
     IERC721 public immutable collection;
     address public immutable treasury;
+    /// @notice Trusted automatic-opening service. Cannot redirect payouts.
+    address public immutable revealer;
     uint256 public constant FEE_BPS = 100;
     uint256 public constant MIN_STAKE = 5_000 * 10 ** 18;
     uint256 public constant DURATION = 24 hours;
@@ -48,9 +50,9 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     event VoteRevealed(uint256 indexed id, address indexed account, uint8 side, uint256 amount);
     event RoundSettled(uint256 indexed id, uint8 winner, bool refund, bool cancelled);
     event Claimed(uint256 indexed id, address indexed account, uint256 gross, uint256 fee, uint256 amount);
-    constructor(address token_, address collection_, address treasury_) Ownable(msg.sender) {
-        require(token_!=address(0) && collection_!=address(0) && treasury_!=address(0),'Zero address');
-        chog=IERC20(token_); collection=IERC721(collection_); treasury=treasury_;
+    constructor(address token_, address collection_, address treasury_, address revealer_) Ownable(msg.sender) {
+        require(token_!=address(0) && collection_!=address(0) && treasury_!=address(0) && revealer_!=address(0),'Zero address');
+        chog=IERC20(token_); collection=IERC721(collection_); treasury=treasury_;revealer=revealer_;
     }
     function tokenAvailable(uint256 tokenId) public view returns(bool) {
         return tokenChallenge[tokenId]==0 && tokenRound[tokenId]==0;
@@ -118,6 +120,7 @@ contract BeautyArena is Ownable, ReentrancyGuard {
         emit VoteCommitted(id,msg.sender,commitment,amount,sealedChoice);
     }
     function revealVote(uint256 id,address account,uint8 side,uint256 tokenId,bytes32 salt) external {
+        require(msg.sender==revealer,'Automatic revealer only');
         Round storage r=rounds[id];
         require(r.endsAt!=0 && block.timestamp>=r.unlockAt && block.timestamp<r.revealEndsAt && !r.settled,'Not revealing');
         require(side<2 && tokenId==(side==0?r.nftA:r.nftB),'Invalid NFT choice');
@@ -134,16 +137,17 @@ contract BeautyArena is Ownable, ReentrancyGuard {
         require(r.revealedCount==r.committedCount || block.timestamp>=r.revealEndsAt,'Reveal incomplete');
         r.settled=true;
         delete tokenRound[r.nftA];delete tokenRound[r.nftB];
-        if(r.revealedCount!=r.committedCount){r.cancelled=true;r.refund=true;r.winner=2;}
-        else if(r.votesA==r.votesB){r.refund=true;r.winner=2;if(r.votesA+r.votesB>1){draws[r.nftA]++;draws[r.nftB]++;}}
+        // Unopened entries are excluded and refunded individually. Only the
+        // authorized service can reveal, preventing selective participant reveals.
+        if(r.votesA==r.votesB){r.refund=true;r.winner=2;if(r.votesA+r.votesB>1){draws[r.nftA]++;draws[r.nftB]++;}}
         else{r.winner=r.votesA>r.votesB?0:1;points[r.winner==0?r.nftA:r.nftB]++;losses[r.winner==0?r.nftB:r.nftA]++;r.refund=r.poolA==0 || r.poolB==0;}
         emit RoundSettled(id,r.winner,r.refund,r.cancelled);
     }
     function payoutBreakdown(uint256 id,address account) public view returns(uint256 gross,uint256 fee,uint256 amount){
         Round storage r=rounds[id]; Entry storage e=entries[id][account];
         if(!r.settled || !e.committed || e.claimed || e.amount==0)return(0,0,0);
-        if(r.refund)return(e.amount,0,e.amount);
-        if(!e.revealed || e.side!=r.winner)return(0,0,0);
+        if(!e.revealed || r.refund)return(e.amount,0,e.amount);
+        if(e.side!=r.winner)return(0,0,0);
         uint256 winningPool=r.winner==0?r.poolA:r.poolB;
         uint256 losingPool=r.winner==0?r.poolB:r.poolA;
         gross=e.amount+Math.mulDiv(e.amount,losingPool,winningPool);
