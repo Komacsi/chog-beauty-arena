@@ -3,6 +3,7 @@ import {sealBallot} from '../lib/timelock.mjs';
 import {phase,DEMO_ARENA} from '../lib/commitments.mjs';
 import {leaderboard} from '../lib/leaderboard.mjs';
 let config,state,signer,address='',holder=false,busy=false,owned=[],displayedPhase=null;
+const nftSelections=new Map();
 const $=s=>document.querySelector(s);
 const esc=v=>String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=v=>Number(formatUnits(BigInt(v || 0),18)).toLocaleString('en-US',{maximumFractionDigits:3});
@@ -36,7 +37,51 @@ async function refresh(){
 const accountAddress=()=>config.mode==='demo'?state.account.address:address;
 const sameAddress=(a,b)=>Boolean(a && b && a.toLowerCase()===b.toLowerCase());
 function occupied(id){return state.challenges.some(c=>c.tokenId===id) || state.rounds.some(r=>r.nftA===id || r.nftB===id);}
-function options(ids){return ids.map(id=>`<option value="${id}">${esc(nft(id)?.name || 'CHOG')}</option>`).join('');}
+function selectionKey(id){return `${(accountAddress() || '').toLowerCase()}:${id}`;}
+function selectedNft(id,available){
+  const key=selectionKey(id),saved=nftSelections.get(key),value=available.includes(saved)?saved:available[0];
+  nftSelections.set(key,value);return value;
+}
+function options(ids,selected=ids[0]){return ids.map(id=>`<option value="${id}" ${id===selected?'selected':''}>${esc(nft(id)?.name || 'CHOG')}</option>`).join('');}
+function nftPicker(id,available){
+  const selected=selectedNft(id,available),choice=nft(selected);
+  return `<div class="nft-picker"><span class="picker-label" id="${id}-label">Choose your NFT</span><input type="hidden" id="${id}" value="${selected ?? ''}"><button type="button" class="nft-picker-toggle" data-picker-toggle="${id}" aria-labelledby="${id}-label ${id}-value" aria-haspopup="listbox" aria-expanded="false" aria-controls="${id}-options" ${!available.length?'disabled':''}>${choice?`<img src="${esc(choice.image)}" alt="" width="36" height="36">`:''}<span id="${id}-value">${esc(choice?.name || 'No available owned NFT')}</span><span class="picker-chevron" aria-hidden="true">⌄</span></button><div class="nft-picker-options" id="${id}-options" role="listbox" aria-labelledby="${id}-label" hidden>${available.map(tokenId=>{const n=nft(tokenId);return `<button type="button" class="nft-picker-option" role="option" data-picker-id="${id}" data-picker-option="${tokenId}" aria-selected="${tokenId===selected}" tabindex="${tokenId===selected?'0':'-1'}"><img src="${esc(n?.image)}" alt="" width="36" height="36"><span>${esc(n?.name || 'CHOG')}</span><span class="picker-check" aria-hidden="true">${tokenId===selected?'✓':''}</span></button>`;}).join('')}</div></div>`;
+}
+function closeNftPickers(restoreFocus=false){
+  for(const toggle of document.querySelectorAll('[data-picker-toggle][aria-expanded="true"]')){
+    toggle.setAttribute('aria-expanded','false');document.getElementById(toggle.getAttribute('aria-controls')).hidden=true;
+    if(restoreFocus)toggle.focus();
+  }
+}
+document.addEventListener('pointerdown',event=>{if(!event.target.closest('.nft-picker'))closeNftPickers();});
+function bindNftPickers(){
+  for(const picker of document.querySelectorAll('.nft-picker')){
+    const toggle=picker.querySelector('[data-picker-toggle]'),list=picker.querySelector('[role="listbox"]'),choices=[...picker.querySelectorAll('[role="option"]')];
+    const open=()=>{closeNftPickers();toggle.setAttribute('aria-expanded','true');list.hidden=false;(choices.find(c=>c.getAttribute('aria-selected')==='true') || choices[0])?.focus();};
+    toggle.onclick=()=>toggle.getAttribute('aria-expanded')==='true'?closeNftPickers():open();
+    toggle.onkeydown=event=>{if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();open();}};
+    picker.onkeydown=event=>{
+      if(event.key==='Escape'){event.preventDefault();closeNftPickers(true);}
+      else if(event.key==='Tab')closeNftPickers();
+      else if(event.target.getAttribute('role')==='option' && ['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
+        event.preventDefault();const index=choices.indexOf(event.target),next=event.key==='Home'?0:event.key==='End'?choices.length-1:(index+(event.key==='ArrowDown'?1:-1)+choices.length)%choices.length;choices[next]?.focus();
+      }
+    };
+    for(const choice of choices)choice.onclick=()=>{
+      const tokenId=Number(choice.dataset.pickerOption),id=choice.dataset.pickerId,n=nft(tokenId);
+      if(!owned.includes(tokenId) || occupied(tokenId))return;
+      nftSelections.set(selectionKey(id),tokenId);document.getElementById(id).value=String(tokenId);
+      toggle.querySelector('img').src=n.image;document.getElementById(id+'-value').textContent=n.name;
+      for(const option of choices){const selected=option===choice;option.setAttribute('aria-selected',String(selected));option.tabIndex=selected?0:-1;option.querySelector('.picker-check').textContent=selected?'✓':'';}
+      closeNftPickers(true);
+    };
+  }
+}
+function selectProfileNft(tokenId){
+  if(!owned.includes(tokenId) || occupied(tokenId))return;
+  nftSelections.set(selectionKey('create-nft'),tokenId);$('#create-nft').value=String(tokenId);
+  for(const card of document.querySelectorAll('[data-choose-nft]')){const selected=Number(card.dataset.chooseNft)===tokenId;card.classList.toggle('is-selected',selected);card.setAttribute('aria-pressed',String(selected));}
+}
 function demoWallet(){return config.mode==='demo'?`<label class="role">Demo wallet<select id="demo-wallet"><option value="alice">Holder A</option><option value="bob">Holder B</option><option value="visitor">Non-holder</option></select></label>`:'';}
 function bindDemoWallet(){if($('#demo-wallet')){$('#demo-wallet').value=state.persona;$('#demo-wallet').onchange=()=>run(()=>api('demo/wallet',{persona:$('#demo-wallet').value}));}}
 async function createChallenge(tokenId){
@@ -47,9 +92,10 @@ async function createChallenge(tokenId){
 async function cancelChallenge(id){if(config.mode==='demo')await api('challenges/cancel',{id});else await(await contract().cancelChallenge(id)).wait();toast('Request cancelled. The NFT is available again.');}
 function requests(list){
   const available=owned.filter(id=>!occupied(id));
-  return list.length?`<div class="request-grid">${list.map(c=>{const n=nft(c.tokenId),mine=sameAddress(c.creator,accountAddress());return `<article class="request-card"><img src="${esc(n?.image || '/nfts/'+c.tokenId+'.webp')}" alt="${esc(n?.name || 'Chog')}"><div><span class="eyebrow">REQUEST #${c.id} · ${c.valid?'WAITING FOR OPPONENT':'OWNERSHIP CHANGED'}</span><h3>${esc(n?.name || 'Chog')}</h3><p>By ${esc(c.creator.slice(0,6)+'…'+c.creator.slice(-4))}</p>${mine || !c.valid?`<button data-cancel="${c.id}">${mine?'Cancel request':'Remove stale request'}</button>`:`<label for="accept-nft-${c.id}">Choose your NFT</label><select id="accept-nft-${c.id}" ${!available.length?'disabled':''}>${available.length?options(available):'<option>No available owned NFT</option>'}</select><button data-accept="${c.id}" ${!available.length?'disabled':''}>Accept & start ${battleLength()} battle ↗</button>`}</div></article>`;}).join('')}</div>`:'<div class="empty">No open requests yet. Create one from your profile.</div>';
+  return list.length?`<div class="request-grid">${list.map(c=>{const n=nft(c.tokenId),mine=sameAddress(c.creator,accountAddress());return `<article class="request-card"><img src="${esc(n?.image || '/nfts/'+c.tokenId+'.webp')}" alt="${esc(n?.name || 'Chog')}"><div><span class="eyebrow">REQUEST #${c.id} · ${c.valid?'WAITING FOR OPPONENT':'OWNERSHIP CHANGED'}</span><h3>${esc(n?.name || 'Chog')}</h3><p>By ${esc(c.creator.slice(0,6)+'…'+c.creator.slice(-4))}</p>${mine || !c.valid?`<button data-cancel="${c.id}">${mine?'Cancel request':'Remove stale request'}</button>`:`${nftPicker(`accept-nft-${c.id}`,available)}<button data-accept="${c.id}" ${!available.length?'disabled':''}>Accept & start ${battleLength()} battle ↗</button>`}</div></article>`;}).join('')}</div>`:'<div class="empty">No open requests yet. Create one from your profile.</div>';
 }
 function bindRequests(){
+  bindNftPickers();
   for(const b of document.querySelectorAll('[data-cancel]'))b.onclick=()=>run(()=>cancelChallenge(Number(b.dataset.cancel)));
   for(const b of document.querySelectorAll('[data-accept]'))b.onclick=()=>run(async()=>{const id=Number(b.dataset.accept),tokenId=Number($('#accept-nft-'+id).value);if(config.mode==='demo')await api('challenges/accept',{id,tokenId});else await(await contract().acceptChallenge(id,tokenId)).wait();toast(`Battle started. Voting and betting are now open for ${battleWindow()}.`);});
 }
@@ -65,8 +111,9 @@ function renderLobby(){
   bindRequests();bindDemoWallet();rewards();
 }
 function renderProfile(){
-  const available=owned.filter(id=>!occupied(id)),mine=state.challenges.filter(c=>sameAddress(c.creator,accountAddress())),myIds=new Set(owned);
-  $('#content').innerHTML=`<section class="hero"><div><div class="eyebrow">YOUR PROFILE</div><h1>Bring your <em>Chog.</em></h1><p class="intro">${accountAddress()?esc(accountAddress()):'Connect your wallet to see your Chog NFTs.'}</p></div>${demoWallet()}</section><p class="vote-note">Prototype: only the 10 imported NFTs are displayed. Ownership is checked again by the contract when creating and accepting a request. NFTs stay in their wallets.</p><section class="create-panel"><h2>Create a battle request</h2><p>Choose an available NFT you own to create a request. Voting has not started yet. Only a different holder accepting this request with their NFT starts the ${battleLength()} battle.</p><div class="bet-controls"><div class="field"><label for="create-nft">YOUR AVAILABLE NFT</label><select id="create-nft" ${!available.length?'disabled':''}>${available.length?options(available):'<option>No available owned NFT</option>'}</select></div><button id="create-battle" ${!available.length?'disabled':''}>Confirm & create request ↗</button></div></section><section class="lobby-section"><h2>Your NFTs <span class="muted">(${owned.length})</span></h2>${owned.length?`<div class="owned-grid">${owned.map(id=>{const n=nft(id);return `<article class="owned-card"><img src="${esc(n?.image)}" alt="${esc(n?.name)}"><h3>${esc(n?.name)}</h3><span class="status-pill">${occupied(id)?'In a request or battle':'Available'}</span></article>`;}).join('')}</div>`:'<div class="empty">No imported Chog NFTs in this wallet. Non-holders can vote by placing a bet in an active battle.</div>'}</section><section class="lobby-section"><h2>Your open requests</h2>${requests(mine)}</section><section class="lobby-section"><h2>Battles with your NFTs</h2>${matches(state.rounds.filter(r=>myIds.has(r.nftA) || myIds.has(r.nftB)))}</section>`;
+  const available=owned.filter(id=>!occupied(id)),selected=selectedNft('create-nft',available),mine=state.challenges.filter(c=>sameAddress(c.creator,accountAddress())),myIds=new Set(owned);
+  $('#content').innerHTML=`<section class="hero"><div><div class="eyebrow">YOUR PROFILE</div><h1>Bring your <em>Chog.</em></h1><p class="intro">${accountAddress()?esc(accountAddress()):'Connect your wallet to see your Chog NFTs.'}</p></div>${demoWallet()}</section><p class="vote-note">Prototype: only the 10 imported NFTs are displayed. Ownership is checked again by the contract when creating and accepting a request. NFTs stay in their wallets.</p><section class="create-panel"><h2>Create a battle request</h2><p>Choose an available NFT you own to create a request. Voting has not started yet. Only a different holder accepting this request with their NFT starts the ${battleLength()} battle.</p><div class="bet-controls"><div class="field"><label for="create-nft">YOUR AVAILABLE NFT</label><select id="create-nft" ${!available.length?'disabled':''}>${available.length?options(available,selected):'<option>No available owned NFT</option>'}</select></div><button id="create-battle" ${!available.length?'disabled':''}>Confirm & create request ↗</button></div></section><section class="lobby-section"><h2>Your NFTs <span class="muted">(${owned.length})</span></h2>${owned.length?`<div class="owned-grid">${owned.map(id=>{const n=nft(id);return `<button type="button" class="owned-card ${id===selected?'is-selected':''}" data-choose-nft="${id}" aria-pressed="${id===selected}" aria-label="${esc(n?.name)} · ${occupied(id)?'In a request or battle':'Select for battle request'}" ${occupied(id)?'disabled':''}><img src="${esc(n?.image)}" alt=""><strong class="owned-name">${esc(n?.name)}</strong><span class="status-pill">${occupied(id)?'In a request or battle':'Available'}</span></button>`;}).join('')}</div>`:'<div class="empty">No imported Chog NFTs in this wallet. Non-holders can vote by placing a bet in an active battle.</div>'}</section><section class="lobby-section"><h2>Your open requests</h2>${requests(mine)}</section><section class="lobby-section"><h2>Battles with your NFTs</h2>${matches(state.rounds.filter(r=>myIds.has(r.nftA) || myIds.has(r.nftB)))}</section>`;
+  $('#create-nft').onchange=()=>selectProfileNft(Number($('#create-nft').value));for(const card of document.querySelectorAll('[data-choose-nft]'))card.onclick=()=>selectProfileNft(Number(card.dataset.chooseNft));
   $('#create-battle').onclick=()=>run(()=>createChallenge(Number($('#create-nft').value)));bindRequests();bindDemoWallet();rewards();
 }
 function clock(){
@@ -149,4 +196,4 @@ async function cast(side,amountText){
 }
 $('#wallet').onclick=()=>config.mode==='demo'?location.assign('/profile'):run(connect);
 window.ethereum?.on?.('accountsChanged',()=>{address='';signer=null;holder=false;owned=[];$('#wallet').textContent='Connect wallet ↗';run(refresh);});window.ethereum?.on?.('chainChanged',()=>location.reload());
-try{config=await api('config');await refresh();setInterval(()=>{if(!busy && !['INPUT','SELECT'].includes(document.activeElement.tagName))refresh().catch(e=>toast(e.message));},10000);setInterval(clock,1000);}catch(e){$('#content').innerHTML='<div class="empty">'+esc(e.message)+'</div>';}
+try{config=await api('config');await refresh();setInterval(()=>{if(!busy && !document.querySelector('[data-picker-toggle][aria-expanded="true"]') && !['INPUT','SELECT'].includes(document.activeElement.tagName))refresh().catch(e=>toast(e.message));},10000);setInterval(clock,1000);}catch(e){$('#content').innerHTML='<div class="empty">'+esc(e.message)+'</div>';}
