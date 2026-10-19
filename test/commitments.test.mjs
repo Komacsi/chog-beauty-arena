@@ -16,4 +16,6 @@ test('commit and reveal phases never overlap at their boundaries',()=>{
 });
 test('the post-close clock margin is a distinct waiting phase',()=>{
   const r={endsAt:100,unlockAt:150,revealEndsAt:200};assert.equal(phase(r,99),'commit');assert.equal(phase(r,100),'waiting');assert.equal(phase(r,149),'waiting');assert.equal(phase(r,150),'reveal');assert.equal(phase(r,200),'settlement');
+  assert.equal(phase({...r,interrupted:true},1),'interrupted');
+  assert.equal(phase({...r,interrupted:true,settled:true},1),'settled');
 });

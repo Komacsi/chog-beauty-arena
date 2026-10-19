@@ -1,0 +1,20 @@
+[Unit]
+Description=Read-only Chog Arena health check
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=chogmonitor
+Group=chogmonitor
+WorkingDirectory=/opt/chog-arena
+EnvironmentFile=/etc/chog-arena/public.env
+ExecStart=/usr/bin/node scripts/monitor.mjs
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077

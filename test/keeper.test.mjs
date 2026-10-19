@@ -4,20 +4,29 @@ import {processRound,processRounds} from '../lib/keeper.mjs';
 import {readFile} from 'node:fs/promises';
 import {toUtf8Bytes} from 'ethers';
 import {sealBallot,drandClient} from '../lib/timelock.mjs';
+test('keeper stops after role revocation without touching any match',async()=>{
+  const result=await processRounds({arena:{revealer:async()=>'0x'+'0'.repeat(40)},expectedRevealer:'0x'+'1'.repeat(40)});
+  assert.deepEqual(result,[{phase:'revoked'}]);
+});
+test('interrupted matches refund before unlock without trying decryption',async()=>{
+  let settled=0;
+  const arena={getRound:async()=>({settled:false,unlockAt:999999}),settle:async id=>({wait:async()=>{settled=id;}})};
+  assert.deepEqual(await processRound({arena,id:2,interruptedThroughRound:2}),{phase:'refunded',id:2});assert.equal(settled,2);
+});
 test('keeper settles an older ready match while the newest match is still accepting votes',async()=>{
   const rounds={1:{settled:false,unlockAt:10,revealEndsAt:20,revealedCount:0,committedCount:0},2:{settled:false,unlockAt:1000,revealEndsAt:2000}},settled=[];
-  const arena={currentRoundId:async()=>2n,getRound:async id=>rounds[id],settle:async id=>({wait:async()=>{rounds[id].settled=true;settled.push(id);}})};
+  const arena={interruptedThroughRound:async()=>0n,currentRoundId:async()=>2n,getRound:async id=>rounds[id],settle:async id=>({wait:async()=>{rounds[id].settled=true;settled.push(id);}})};
   const provider={getBlock:async()=>({timestamp:30}),getNetwork:async()=>({chainId:143n})};
   const result=await processRounds({arena,provider,fromBlock:0});assert.deepEqual(settled,[1]);assert.equal(result[1].phase,'waiting');
 });
 test('one failing match cannot prevent another match from progressing',async()=>{
-  const arena={currentRoundId:async()=>2n,getRound:async id=>{if(id===1)throw Error('RPC unavailable');return {settled:false,unlockAt:1000};}};
+  const arena={interruptedThroughRound:async()=>0n,currentRoundId:async()=>2n,getRound:async id=>{if(id===1)throw Error('RPC unavailable');return {settled:false,unlockAt:1000};}};
   const result=await processRounds({arena,provider:{getBlock:async()=>({timestamp:30})}});assert.deepEqual(result.map(r=>r.phase),['retry','waiting']);
 });
 
 test('receipt waits are bounded so an unmined settlement cannot stall every later match',async()=>{
   const waits=[];
-  const arena={currentRoundId:async()=>2n,getRound:async id=>({settled:false,unlockAt:id===1?10:1000,revealEndsAt:20,revealedCount:0,committedCount:0}),
+  const arena={interruptedThroughRound:async()=>0n,currentRoundId:async()=>2n,getRound:async id=>({settled:false,unlockAt:id===1?10:1000,revealEndsAt:20,revealedCount:0,committedCount:0}),
     settle:async()=>({wait:async(confirmations,timeout)=>{waits.push([confirmations,timeout]);if(timeout===undefined)throw Error('Unbounded receipt wait');const error=Error('Not mined');error.code='TIMEOUT';throw error;}})};
   const result=await processRounds({arena,provider:{getBlock:async()=>({timestamp:30}),getNetwork:async()=>({chainId:143n})},receiptTimeoutMs:30000});
   assert.deepEqual(waits,[[1,30000]]);assert.deepEqual(result.map(r=>r.phase),['retry','waiting']);

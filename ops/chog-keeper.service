@@ -1,0 +1,37 @@
+[Unit]
+Description=Chog Arena automatic opening keeper
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=chogkeeper
+Group=chogkeeper
+WorkingDirectory=/opt/chog-arena
+EnvironmentFile=/etc/chog-arena/public.env
+LoadCredential=keystore:/etc/chog-arena/keeper.keystore.json
+LoadCredential=password:/etc/chog-arena/keeper.password
+Environment=KEEPER_KEYSTORE_PATH=%d/keystore
+Environment=KEEPER_PASSWORD_FILE=%d/password
+ExecStart=/usr/bin/node scripts/keeper.mjs
+Restart=on-failure
+RestartSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+TimeoutStopSec=45
+
+[Install]
+WantedBy=multi-user.target

@@ -7,6 +7,8 @@ import {makeCommitment,makeSalt} from '../lib/commitments.mjs';
 import {readFile} from 'node:fs/promises';
 import {sealBallot,drandClient} from '../lib/timelock.mjs';
 import {processRound} from '../lib/keeper.mjs';
+import {deploySafe} from '../test-support/safe.mjs';
+import {validateGovernance} from '../lib/governance.mjs';
 const compiled=compile({'Mocks.sol':{content:`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
@@ -35,7 +37,9 @@ async function fixture(historical=false){
   const transport=ganache.provider({logging:{quiet:true},chain:{hardfork:'shanghai',...(historical?{time:new Date((1692803367-86400-300)*1000)}:{})},...(historical?{miner:{timestampIncrement:0}}:{}),wallet:{totalAccounts:6}}),provider=new BrowserProvider(transport,undefined,{cacheTimeout:-1});provider.pollingInterval=10;
   const signers=await Promise.all(Array.from({length:6},(_,i)=>provider.getSigner(i)));
   async function deploy(file,name,args=[]){const a=compiled[file][name],c=await new ContractFactory(a.abi,'0x'+a.evm.bytecode.object,signers[0]).deploy(...args);await c.waitForDeployment();return c;}
-  const token=await deploy('Mocks.sol','MockToken'),nft=await deploy('Mocks.sol','MockNFT'),arena=await deploy('BeautyArena.sol','BeautyArena',[await token.getAddress(),await nft.getAddress(),await signers[5].getAddress(),await signers[4].getAddress()]);
+  const governance=await deploySafe(signers.slice(0,3));
+  const token=await deploy('Mocks.sol','MockToken'),nft=await deploy('Mocks.sol','MockNFT'),arena=await deploy('BeautyArena.sol','BeautyArena',[await token.getAddress(),await nft.getAddress(),await signers[5].getAddress(),await signers[4].getAddress(),await governance.safe.getAddress()]);
+  const govern=(method,args=[],approvers)=>governance.execute(arena.target,arena.interface.encodeFunctionData(method,args),approvers);
   for(let i=0;i<5;i++){await(await token.mint(await signers[i].getAddress(),lots(1000))).wait();await(await token.connect(signers[i]).approve(await arena.getAddress(),lots(1000))).wait();}
   for(const [id,owner]of [[1,0],[2,4],[3,0],[4,4]])await(await nft.mint(await signers[owner].getAddress(),id)).wait();
   await(await arena.createChallenge(1)).wait();await(await arena.connect(signers[4]).acceptChallenge(1,2)).wait();
@@ -45,7 +49,7 @@ async function fixture(historical=false){
   async function reveal(b){await(await arena.connect(signers[4]).revealVote(b.roundId,b.account,b.side,b.tokenId,b.salt)).wait();}
   async function finish(){const id=Number(await arena.currentRoundId());await goto((await arena.getRound(id)).unlockAt);for(const b of ballots.filter(b=>b.roundId===id))await reveal(b);await(await arena.settle(id)).wait();}
   async function close(){provider.destroy();await transport.disconnect();}
-  return {provider,signers,token,nft,arena,commit,goto,reveal,finish,close,ballots};
+  return {provider,signers,token,nft,arena,commit,goto,reveal,finish,close,ballots,govern,governance,deploy};
 }
 test('contract commitments contain no side or per-NFT totals during betting',async()=>{const f=await fixture();try{
   const {b,receipt}=await f.commit(1,1,lots(10)),r=await f.arena.getRound(1),e=await f.arena.entries(1,b.account);assert.equal(r.poolA,0n);assert.equal(r.poolB,0n);assert.equal(r.votesA,0n);assert.equal(r.votesB,0n);assert.equal(r.totalCommitted,lots(10));assert.equal(e.revealed,false);
@@ -145,7 +149,7 @@ test('accepted SEC-02 game rule: two minimum bets outvote a larger opposing bet'
   assert.equal(a.gross+b.gross,lots(100)+2n*minimum);
 }finally{await f.close();}});
 
-test('only the immutable service can reveal; participants cannot selectively rescue an invalid ciphertext',async()=>{const f=await fixture();try{
+test('only the authorized service can reveal; participants cannot selectively rescue an invalid ciphertext',async()=>{const f=await fixture();try{
   const a=await f.commit(1,0,lots(10)),b=await f.commit(2,0,lots(30)),c=await f.commit(3,1,lots(60));
   const attacker=await f.commit(0,1,lots(20));const r=await f.arena.getRound(1);await f.goto(r.unlockAt);
   for(const ballot of [a.b,b.b,c.b])await f.reveal(ballot);
@@ -256,7 +260,7 @@ test('security: replayed commitments cannot open another wallet or round, and ow
   await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(1,await f.signers[4].getAddress(),b.side,b.tokenId,b.salt));
   for(const ballot of f.ballots)await f.reveal(ballot);
   await(await f.arena.settle(1)).wait();
-  assert.equal(await f.arena.owner(),await f.signers[0].getAddress());
+  assert.equal(await f.arena.owner(),await f.governance.safe.getAddress());
   await assert.rejects(f.arena.claim.staticCall(1));
   await assert.rejects(f.arena.connect(f.signers[5]).claim.staticCall(1));
   await assert.rejects(f.arena.withdrawFees.staticCall());
@@ -280,4 +284,75 @@ test('minimum stake applies onchain to holders and non-holders, with zero reserv
   await assert.rejects(f.arena.connect(f.signers[1]).commitVote.staticCall(1,commitment,0,0,'0x01'));
   await f.commit(0,0,0n,1);await f.commit(1,1,minimum);await f.commit(2,0,minimum+1n);
   assert.equal((await f.arena.getRound(1)).totalCommitted,2n*minimum+1n);
+}finally{await f.close();}});
+
+test('governance requires a verified Safe and two approvals; a keeper or single owner cannot change roles',async()=>{const f=await fixture();try{
+  assert.equal((await validateGovernance(f.provider,f.governance.safe.target)).threshold,2);
+  const next=await f.signers[3].getAddress(),old=await f.arena.revealer();
+  for(const signer of f.signers){await assert.rejects(f.arena.connect(signer).setRevealer.staticCall(next));await assert.rejects(f.arena.connect(signer).revokeRevealer.staticCall());await assert.rejects(f.arena.connect(signer).emergencyCancelRound.staticCall(1));}
+  await assert.rejects(f.govern('setRevealer',[next],[f.signers[0]]));assert.equal(await f.arena.revealer(),old);
+  await f.govern('setRevealer',[next]);assert.equal(await f.arena.revealer(),next);
+  await assert.rejects(f.govern('withdrawFees'));
+  const one=await deploySafe(f.signers.slice(0,3),{threshold:1}),args=[f.token.target,f.nft.target,await f.signers[5].getAddress(),old];
+  await assert.rejects(validateGovernance(f.provider,one.safe.target),/two confirmations/);
+  await assert.rejects(validateGovernance(f.provider,f.nft.target),/verified Safe/);
+  await assert.rejects(f.deploy('BeautyArena.sol','BeautyArena',[...args,await one.safe.getAddress()]));
+  await assert.rejects(f.deploy('BeautyArena.sol','BeautyArena',[...args,await f.signers[0].getAddress()]));
+  await assert.rejects(f.deploy('BeautyArena.sol','BeautyArena',[...args,f.nft.target]));
+  // Modules can execute without owner quorum, so the arena refuses them.
+  const safe=f.governance.safe,module=await f.signers[0].getAddress();
+  await f.governance.execute(safe.target,safe.interface.encodeFunctionData('enableModule',[module]));
+  await assert.rejects(validateGovernance(f.provider,safe.target),/modules/);
+  await assert.rejects(f.govern('revokeRevealer'));assert.equal(await f.arena.revealer(),next);
+  await f.governance.execute(safe.target,safe.interface.encodeFunctionData('disableModule',['0x0000000000000000000000000000000000000001',module]));
+  await f.govern('revokeRevealer');assert.equal(await f.arena.revealer(),'0x0000000000000000000000000000000000000000');
+}finally{await f.close();}});
+
+test('normal keeper rotation preserves a valid round while immediately excluding the old signer',async()=>{const f=await fixture();try{
+  const a=await f.commit(1,0,lots(10)),b=await f.commit(2,0,lots(30)),c=await f.commit(3,1,lots(60));
+  await f.goto((await f.arena.getRound(1)).unlockAt);await f.reveal(a.b);
+  await f.govern('setRevealer',[await f.signers[3].getAddress()]);
+  await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(1,b.b.account,b.b.side,b.b.tokenId,b.b.salt));
+  for(const {b:ballot}of [b,c])await(await f.arena.connect(f.signers[3]).revealVote(1,ballot.account,ballot.side,ballot.tokenId,ballot.salt)).wait();
+  await(await f.arena.settle(1)).wait();assert.equal(await f.arena.points(1),1n);assert.equal(await f.arena.payout(1,a.b.account),lots('24.75'));
+  await assert.rejects(f.govern('setRevealer',['0x0000000000000000000000000000000000000000']));
+  await assert.rejects(f.govern('setRevealer',[await f.signers[5].getAddress()]));
+}finally{await f.close();}});
+
+test('emergency revocation forces unfinished rounds to refund and preserves completed results and claims',async()=>{const f=await fixture();try{
+  await f.commit(1,0,lots(10));await f.commit(2,0,lots(30));await f.commit(3,1,lots(60));await f.finish();
+  await(await f.arena.createChallenge(1)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(2,2)).wait();await f.commit(1,0,lots(20));
+  await(await f.arena.createChallenge(3)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(3,4)).wait();await f.commit(2,1,lots(30));
+  await f.govern('revokeRevealer');assert.equal(await f.arena.interruptedThroughRound(),3n);assert.equal(await f.arena.roundInterrupted(2),true);
+  await assert.rejects(f.arena.connect(f.signers[3]).commitVote.staticCall(2,'0x'+'ab'.repeat(32),lots(5),0,'0x01'));
+  await assert.rejects(f.arena.connect(f.signers[4]).acceptChallenge.staticCall(99,999),/suspended/);
+  await assert.rejects(f.govern('emergencyCancelRound',[1]));
+  // Public settlement gives refunds before the normal deadline, even without a keeper.
+  await(await f.arena.connect(f.signers[2]).settle(2)).wait();assert.equal((await f.arena.getRound(2)).cancelled,true);
+  await f.govern('setRevealer',[await f.signers[3].getAddress()]);
+  await assert.rejects(f.arena.connect(f.signers[3]).revealVote.staticCall(3,await f.signers[2].getAddress(),1,4,'0x'+'ab'.repeat(32)),/interrupted/);
+  await(await f.arena.settle(3)).wait();assert.equal((await f.arena.getRound(3)).cancelled,true);
+  for(const [id,i,amount]of [[2,1,20],[3,2,30]]){assert.equal(await f.arena.payout(id,await f.signers[i].getAddress()),lots(amount));await(await f.arena.connect(f.signers[i]).claim(id)).wait();await assert.rejects(f.arena.connect(f.signers[i]).claim.staticCall(id));}
+  assert.equal(await f.arena.treasuryCredit(),0n);assert.equal(await f.arena.points(1),1n);assert.equal(await f.arena.losses(2),1n);assert.equal(await f.arena.draws(3),0n);
+  for(const i of [1,2])await(await f.arena.connect(f.signers[i]).claim(1)).wait();await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();assert.equal(await f.token.balanceOf(f.arena.target),0n);
+  await(await f.arena.createChallenge(1)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(4,2)).wait();await f.commit(1,0,lots(5));
+  assert.equal(await f.arena.roundInterrupted(4),false);await f.govern('emergencyCancelRound',[4]);assert.equal(await f.arena.payout(4,await f.signers[1].getAddress()),lots(5));
+}finally{await f.close();}});
+
+test('governance can cancel a revealed but unfinished round without recording a result or fee',async()=>{const f=await fixture();try{
+  const a=await f.commit(1,0,lots(10)),b=await f.commit(2,0,lots(30)),c=await f.commit(3,1,lots(60));await f.goto((await f.arena.getRound(1)).unlockAt);
+  for(const {b:ballot}of [a,b,c])await f.reveal(ballot);await f.govern('emergencyCancelRound',[1]);
+  assert.equal(await f.arena.points(1),0n);assert.equal(await f.arena.losses(2),0n);assert.equal(await f.arena.draws(1),0n);
+  for(const [i,amount]of [[1,10],[2,30],[3,60]])assert.deepEqual([...await f.arena.payoutBreakdown(1,await f.signers[i].getAddress())],[lots(amount),0n,lots(amount)]);
+  await assert.rejects(f.arena.settle.staticCall(1));assert.equal(await f.arena.tokenAvailable(1),true);
+}finally{await f.close();}});
+
+test('governance transfer requires acceptance by another verified multisig and cannot be renounced',async()=>{const f=await fixture();try{
+  const replacement=await deploySafe([f.signers[0],f.signers[2],f.signers[3]]),original=await f.arena.owner();
+  await assert.rejects(f.govern('transferOwnership',[await f.signers[0].getAddress()]));await assert.rejects(f.govern('renounceOwnership'));
+  await f.govern('transferOwnership',[replacement.safe.target]);assert.equal(await f.arena.owner(),original);assert.equal(await f.arena.pendingOwner(),replacement.safe.target);
+  await assert.rejects(f.arena.acceptOwnership.staticCall());
+  await replacement.execute(f.arena.target,f.arena.interface.encodeFunctionData('acceptOwnership'));
+  assert.equal(await f.arena.owner(),replacement.safe.target);await assert.rejects(f.govern('revokeRevealer'));
+  await replacement.execute(f.arena.target,f.arena.interface.encodeFunctionData('revokeRevealer'));assert.equal(await f.arena.roundInterrupted(1),true);
 }finally{await f.close();}});

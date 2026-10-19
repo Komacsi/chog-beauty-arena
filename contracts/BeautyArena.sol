@@ -3,17 +3,30 @@ pragma solidity ^0.8.24;
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/access/Ownable2Step.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
 
 /// @notice Stakes and addresses are public. Choices are time-encrypted until betting closes.
-contract BeautyArena is Ownable, ReentrancyGuard {
+interface ISafeGovernance {
+    function masterCopy() external view returns(address);
+    function getThreshold() external view returns(uint256);
+    function getOwners() external view returns(address[] memory);
+    function getModulesPaginated(address start,uint256 pageSize) external view returns(address[] memory,address);
+}
+contract BeautyArena is Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
     IERC20 public immutable chog;
     IERC721 public immutable collection;
     address public immutable treasury;
-    /// @notice Trusted automatic-opening service. Cannot redirect payouts.
-    address public immutable revealer;
+    /// @notice Trusted automatic-opening service, replaceable only by governance.
+    address public revealer;
+    /// @notice Unsettled rounds up to this ID must refund after an emergency revoke.
+    uint256 public interruptedThroughRound;
+    // Official @safe-global/safe-smart-account 1.5.0 runtime artifacts.
+    bytes32 private constant SAFE_PROXY_HASH=0x4e381985ca68b3e5d27b4425fa581c19cf33146d3f887a3cfca96f55528ea46f;
+    bytes32 private constant SAFE_HASH=0xdda019cbd7c867a533a2a86e5c53434fdc50b13122b5a5ddb4a8df61b31c20f2;
+    bytes32 private constant SAFE_L2_HASH=0x180193227186ccb85316c94db1f0d156ed932b14712cfaac78901899178572dc;
     uint256 public constant FEE_BPS = 100;
     uint256 public constant MIN_STAKE = 5_000 * 10 ** 18;
     uint256 public constant DURATION = 24 hours;
@@ -50,9 +63,47 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     event VoteRevealed(uint256 indexed id, address indexed account, uint8 side, uint256 amount);
     event RoundSettled(uint256 indexed id, uint8 winner, bool refund, bool cancelled);
     event Claimed(uint256 indexed id, address indexed account, uint256 gross, uint256 fee, uint256 amount);
-    constructor(address token_, address collection_, address treasury_, address revealer_) Ownable(msg.sender) {
+    event RevealerChanged(address indexed previous,address indexed current);
+    event RevealerRevoked(address indexed previous,uint256 interruptedThroughRound);
+    event RoundEmergencyCancelled(uint256 indexed id,address indexed caller);
+    constructor(address token_, address collection_, address treasury_, address revealer_, address governance_) Ownable(governance_) {
         require(token_!=address(0) && collection_!=address(0) && treasury_!=address(0) && revealer_!=address(0),'Zero address');
+        _requireMultisig(governance_);
+        require(revealer_!=governance_ && revealer_!=treasury_,'Separate keeper wallet required');
         chog=IERC20(token_); collection=IERC721(collection_); treasury=treasury_;revealer=revealer_;
+    }
+    function _requireMultisig(address account) internal view {
+        require(account.codehash==SAFE_PROXY_HASH,'Verified Safe proxy required');
+        ISafeGovernance safe=ISafeGovernance(account);
+        bytes32 implementationHash=safe.masterCopy().codehash;
+        require(implementationHash==SAFE_HASH || implementationHash==SAFE_L2_HASH,'Unsupported Safe implementation');
+        uint256 threshold=safe.getThreshold();
+        require(threshold>=2 && threshold<=safe.getOwners().length,'At least two confirmations required');
+        (address[] memory modules,)=safe.getModulesPaginated(address(1),1);
+        require(modules.length==0,'Governance modules must be disabled');
+    }
+    modifier onlyGovernance(){_checkOwner();_requireMultisig(owner());_;}
+    function transferOwnership(address next) public override onlyGovernance {_requireMultisig(next);super.transferOwnership(next);}
+    function acceptOwnership() public override {_requireMultisig(msg.sender);super.acceptOwnership();}
+    function renounceOwnership() public override onlyGovernance {revert('Governance cannot be renounced');}
+    function setRevealer(address next) external onlyGovernance {
+        require(next!=address(0) && next!=revealer,'Invalid revealer');
+        require(next!=owner() && next!=treasury,'Separate keeper wallet required');
+        address previous=revealer;revealer=next;emit RevealerChanged(previous,next);
+    }
+    function revokeRevealer() external onlyGovernance {
+        address previous=revealer;require(previous!=address(0),'Revealer already revoked');
+        revealer=address(0);interruptedThroughRound=currentRoundId;
+        emit RevealerRevoked(previous,currentRoundId);
+    }
+    function roundInterrupted(uint256 id) public view returns(bool){return rounds[id].endsAt!=0 && !rounds[id].settled && id<=interruptedThroughRound;}
+    function emergencyCancelRound(uint256 id) external onlyGovernance {
+        Round storage r=rounds[id];require(r.endsAt!=0 && !r.settled,'Round unavailable');_cancelRound(id,r);
+    }
+    function _cancelRound(uint256 id,Round storage r) internal {
+        r.settled=true;r.cancelled=true;r.refund=true;r.winner=2;
+        delete tokenRound[r.nftA];delete tokenRound[r.nftB];
+        emit RoundEmergencyCancelled(id,msg.sender);emit RoundSettled(id,2,true,true);
     }
     function tokenAvailable(uint256 tokenId) public view returns(bool) {
         return tokenChallenge[tokenId]==0 && tokenRound[tokenId]==0;
@@ -77,6 +128,7 @@ contract BeautyArena is Ownable, ReentrancyGuard {
         try collection.ownerOf(tokenId) returns(address holder){return holder==account;}catch{return false;}
     }
     function acceptChallenge(uint256 id,uint256 tokenId) external returns(uint256 roundId) {
+        require(revealer!=address(0),'Automatic opening suspended');
         Challenge storage c=challenges[id];
         require(c.creator!=address(0) && !c.closed,'Challenge closed');
         require(msg.sender!=c.creator,'Different holder required');
@@ -100,6 +152,7 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     }
     function commitVote(uint256 id,bytes32 commitment,uint256 amount,uint256 holderTokenId,bytes calldata sealedChoice) external nonReentrant {
         Round storage r=rounds[id];
+        require(revealer!=address(0) && id>interruptedThroughRound,'Round interrupted');
         require(r.endsAt!=0 && block.timestamp<r.endsAt && !r.settled,'Betting closed');
         require(commitment!=bytes32(0),'Empty commitment');
         require(sealedChoice.length>0 && sealedChoice.length<=4096,'Invalid ciphertext size');
@@ -122,6 +175,7 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     function revealVote(uint256 id,address account,uint8 side,uint256 tokenId,bytes32 salt) external {
         require(msg.sender==revealer,'Automatic revealer only');
         Round storage r=rounds[id];
+        require(id>interruptedThroughRound,'Round interrupted');
         require(r.endsAt!=0 && block.timestamp>=r.unlockAt && block.timestamp<r.revealEndsAt && !r.settled,'Not revealing');
         require(side<2 && tokenId==(side==0?r.nftA:r.nftB),'Invalid NFT choice');
         Entry storage e=entries[id][account]; require(e.committed && !e.revealed,'Invalid reveal');
@@ -132,8 +186,12 @@ contract BeautyArena is Ownable, ReentrancyGuard {
     }
     function settle(uint256 id) external {
         Round storage r=rounds[id];
-        require(r.endsAt!=0 && block.timestamp>=r.unlockAt,'Round active');
+        require(r.endsAt!=0,'Round unavailable');
         require(!r.settled,'Already settled');
+        // Revocation taints every unfinished round, including fully revealed ones.
+        // Anyone can finalize refunds while governance or the keeper is offline.
+        if(id<=interruptedThroughRound){_cancelRound(id,r);return;}
+        require(block.timestamp>=r.unlockAt,'Round active');
         require(r.revealedCount==r.committedCount || block.timestamp>=r.revealEndsAt,'Reveal incomplete');
         r.settled=true;
         delete tokenRound[r.nftA];delete tokenRound[r.nftB];

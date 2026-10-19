@@ -7,6 +7,7 @@ import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import {RPC_URL,CHAIN_ID,CHOG_TOKEN,COLLECTION} from '../lib/config.mjs';
 import {makeCommitment,makeSalt} from '../lib/commitments.mjs';
+import {deploySafe} from '../test-support/safe.mjs';
 const connection=new FetchRequest(RPC_URL);connection.timeout=15000;
 const upstream=new JsonRpcProvider(connection,undefined,{batchMaxCount:1});
 let transport,provider;
@@ -33,7 +34,8 @@ try{
   for(const account of [ownerA,ownerB,tokenSource])await provider.send('evm_setAccountBalance',[account,'0x56bc75e2d63100000']);
   const token=new Contract(CHOG_TOKEN,['function balanceOf(address) view returns(uint256)','function transfer(address,uint256) returns(bool)','function approve(address,uint256) returns(bool)'],provider);
   const artifact=JSON.parse(await readFile(new URL('../artifacts/BeautyArena.json',import.meta.url),'utf8'));
-  const arena=await new ContractFactory(artifact.abi,artifact.bytecode,signers[0]).deploy(CHOG_TOKEN,COLLECTION,await signers[4].getAddress(),await signers[3].getAddress());await arena.waitForDeployment();
+  const {safe}=await deploySafe(signers.slice(0,3));
+  const arena=await new ContractFactory(artifact.abi,artifact.bytecode,signers[0]).deploy(CHOG_TOKEN,COLLECTION,await signers[4].getAddress(),await signers[3].getAddress(),await safe.getAddress());await arena.waitForDeployment();
   await(await arena.connect(await provider.getSigner(ownerA)).createChallenge(nftA)).wait();
   await(await arena.connect(await provider.getSigner(ownerB)).acceptChallenge(1,nftB)).wait();
   const amount=parseUnits('5000',18),ballots=[];
@@ -61,6 +63,6 @@ try{
   }
   await(await arena.connect(signers[4]).withdrawFees()).wait();assert.equal(await token.balanceOf(await arena.getAddress()),0n);
   assert.equal(await token.balanceOf(await signers[4].getAddress()),amount+parseUnits('150',18));
-  const result={checkedAt:new Date().toISOString(),upstreamChainId:CHAIN_ID,forkBlock:block,localChainId:1337,protocolVersion:4,nftA,nftB,depositAndPayout:'passed',excludedEntryRefund:'5000 CHOG, no fee',authorizedRevealer:'enforced',realTransactionsSent:0,limitations:'Single-state integration test in Shanghai EVM, manual service reveals, missing Monad withdrawals array normalized to empty. Not a Monad consensus/gas test, source audit, protocol proof, outage or future admin-behavior guarantee.'};
+  const result={checkedAt:new Date().toISOString(),upstreamChainId:CHAIN_ID,forkBlock:block,localChainId:1337,protocolVersion:5,nftA,nftB,depositAndPayout:'passed',excludedEntryRefund:'5000 CHOG, no fee',authorizedRevealer:'enforced',realTransactionsSent:0,limitations:'Single-state integration test in Shanghai EVM, manual service reveals, missing Monad withdrawals array normalized to empty. Not a Monad consensus/gas test, source audit, protocol proof, outage or future admin-behavior guarantee.'};
   const output=resolve(process.argv[2] || 'outputs/security-fork.json');await mkdir(dirname(output),{recursive:true});await writeFile(output,JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2));
 }finally{provider?.destroy();await transport?.disconnect();upstream.destroy();}

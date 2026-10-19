@@ -1,4 +1,7 @@
 .env
+secrets/
+*.keystore.json
+*.password
 node_modules/
 data/*.sqlite*
 data/import-errors.json
