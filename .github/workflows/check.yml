@@ -12,7 +12,10 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run check
       - run: npm run build
       - run: npm test
+      - run: npm run build:runtime
+      - run: node scripts/check-runtime.mjs dist/runtime
+      - run: npm run --silent audit:security

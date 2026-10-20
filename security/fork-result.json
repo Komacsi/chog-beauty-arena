@@ -1,14 +1,15 @@
 {
-  "checkedAt": "2026-10-19T22:02:55.924Z",
+  "checkedAt": "2026-10-20T19:44:38.008Z",
   "upstreamChainId": 143,
   "forkBlock": 114860268,
   "localChainId": 1337,
   "protocolVersion": 5,
+  "testEvm": "Anvil 1.7.1",
   "nftA": 299,
   "nftB": 379,
   "depositAndPayout": "passed",
   "excludedEntryRefund": "5000 CHOG, no fee",
   "authorizedRevealer": "enforced",
   "realTransactionsSent": 0,
-  "limitations": "Single-state integration test in Shanghai EVM, manual service reveals, missing Monad withdrawals array normalized to empty. Not a Monad consensus/gas test, source audit, protocol proof, outage or future admin-behavior guarantee."
+  "limitations": "Single-state integration test in Shanghai EVM, manual service reveals, read-only RPC gateway, missing Monad withdrawals array normalized to empty. Not a Monad consensus/gas test, source audit, protocol proof, outage or future admin-behavior guarantee."
 }

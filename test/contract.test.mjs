@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import ganache from 'ganache';
-import {BrowserProvider,ContractFactory,parseUnits,toUtf8Bytes,id as signatureId} from 'ethers';
+import {ContractFactory,parseUnits,toUtf8Bytes,id as signatureId} from 'ethers';
+import {startLocalEvm} from '../test-support/local-evm.mjs';
 import {compile} from '../scripts/compile.mjs';
 import {makeCommitment,makeSalt} from '../lib/commitments.mjs';
 import {readFile} from 'node:fs/promises';
@@ -34,7 +34,8 @@ const lots=n=>parseUnits(String(Number(n)*1000),18);
 async function fixture(historical=false){
   // Local blocks are mined faster than the provider's default 250 ms read cache.
   // Disable that cache so each assertion/keeper scan sees the blocks just mined.
-  const transport=ganache.provider({logging:{quiet:true},chain:{hardfork:'shanghai',...(historical?{time:new Date((1692803367-86400-300)*1000)}:{})},...(historical?{miner:{timestampIncrement:0}}:{}),wallet:{totalAccounts:6}}),provider=new BrowserProvider(transport,undefined,{cacheTimeout:-1});provider.pollingInterval=10;
+  const evm=await startLocalEvm(historical?{timestamp:1692803367-86400-300}:{}),provider=evm.provider;
+  try{
   const signers=await Promise.all(Array.from({length:6},(_,i)=>provider.getSigner(i)));
   async function deploy(file,name,args=[]){const a=compiled[file][name],c=await new ContractFactory(a.abi,'0x'+a.evm.bytecode.object,signers[0]).deploy(...args);await c.waitForDeployment();return c;}
   const governance=await deploySafe(signers.slice(0,3));
@@ -45,11 +46,12 @@ async function fixture(historical=false){
   await(await arena.createChallenge(1)).wait();await(await arena.connect(signers[4]).acceptChallenge(1,2)).wait();
   const ballots=[];
   async function commit(i,side,amount,holderId=0){const id=Number(await arena.currentRoundId()),b={arena:await arena.getAddress(),chainId:Number((await provider.getNetwork()).chainId),roundId:id,account:await signers[i].getAddress(),side,tokenId:side?2:1,amount:amount.toString(),salt:makeSalt()};const tx=await arena.connect(signers[i]).commitVote(id,makeCommitment(b),amount,holderId,toUtf8Bytes('opaque encrypted choice'));const receipt=await tx.wait();ballots.push(b);return {b,receipt};}
-  async function goto(time){const block=await provider.send('eth_getBlockByNumber',['latest',false]);await provider.send('evm_increaseTime',[Math.max(0,Number(time)-Number(BigInt(block.timestamp)))]);await provider.send('evm_mine',[]);}
+  async function goto(time){const block=await provider.send('eth_getBlockByNumber',['latest',false]);if(Number(time)>Number(BigInt(block.timestamp)))await provider.send('evm_setNextBlockTimestamp',[Number(time)]);await provider.send('evm_mine',[]);}
   async function reveal(b){await(await arena.connect(signers[4]).revealVote(b.roundId,b.account,b.side,b.tokenId,b.salt)).wait();}
   async function finish(){const id=Number(await arena.currentRoundId());await goto((await arena.getRound(id)).unlockAt);for(const b of ballots.filter(b=>b.roundId===id))await reveal(b);await(await arena.settle(id)).wait();}
-  async function close(){provider.destroy();await transport.disconnect();}
+  async function close(){await evm.close();}
   return {provider,signers,token,nft,arena,commit,goto,reveal,finish,close,ballots,govern,governance,deploy};
+  }catch(error){await evm.close();throw error;}
 }
 test('contract commitments contain no side or per-NFT totals during betting',async()=>{const f=await fixture();try{
   const {b,receipt}=await f.commit(1,1,lots(10)),r=await f.arena.getRound(1),e=await f.arena.entries(1,b.account);assert.equal(r.poolA,0n);assert.equal(r.poolB,0n);assert.equal(r.votesA,0n);assert.equal(r.votesB,0n);assert.equal(r.totalCommitted,lots(10));assert.equal(e.revealed,false);

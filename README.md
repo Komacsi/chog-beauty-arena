@@ -57,7 +57,7 @@ Example: winning bets 10,000 and 30,000, losing pool 60,000 CHOG. Gross payouts 
 Requires Node.js 24+. Uses built-in SQLite. The ten sample NFT images are already included.
 
 ```sh
-npm ci
+npm ci --ignore-scripts
 npm run build
 npm start
 ```
@@ -93,7 +93,20 @@ No funded production keeper, Safe, hosting or alert destination has been created
 
 Opt-in security checks: node scripts/security-assets.mjs inventories public asset bytecode/proxy slots; node scripts/security-fork.mjs runs a disposable local EVM integration against a current Monad snapshot, including an individually refunded malformed entry. A third CLI argument can pin the fork block. Upstream RPC is restricted to read methods; all fork transactions stay local. See security/ for the recorded snapshots and the report for limitations. These network-dependent scripts are outside ordinary CI.
 
-For npm audit connection resets, use npm run audit:security. It runs the installed official npm audit with fresh registry data, one connection per origin and bounded timeouts. Transport errors retry the whole audit at most three times, including response-body resets that npm's connection retries did not cover. It returns only a complete npm JSON report: exit 0 for no findings, 1 for findings and 2 if no report was obtained. The command completed during diagnosis; regression tests cover response resets, findings and incomplete output. The precise upstream/network cause was not established. Registry and TLS verification remain unchanged. The current report is saved as security/npm-audit.json, with 36 findings in Ganache and its development dependencies; dependencies were not automatically changed.
+For npm audit connection resets, use npm run audit:security. It runs the installed official npm audit with fresh registry data, one connection per origin and bounded timeouts. Transport errors retry the whole audit at most three times, including response-body resets that npm's connection retries did not cover. It returns only a complete npm JSON report: exit 0 for no findings, 1 for findings and 2 if no report was obtained. Registry and TLS verification remain unchanged. The current report is saved as security/npm-audit.json: **zero known npm vulnerabilities** after replacing Ganache and its dependency tree.
+
+## Test EVM and runtime packaging
+
+Contract tests and the opt-in fork use the official, pinned @foundry-rs/anvil 1.7.1 native binary. Platform binaries are installed as optional npm dependencies, so do not omit optional packages in the development checkout. Install scripts are unnecessary. Test nodes use ephemeral ports on 127.0.0.1, disposable accounts, chain 1337 and Shanghai EVM rules; their processes are closed after each fixture. Windows native requests bypass system proxies only for loopback in the child process. No global proxy setting changes.
+
+The fork node can reach upstream only through a loopback gateway that rejects broadcasts and admin methods. A regression test verifies rejection before contacting upstream. The archived Ganache dependency and 365 packages were removed; the prior 36 audit findings disappeared. The contract, fee rules and saved demo records were not changed. A clean npm audit is a known-advisory check, not an independent audit of Anvil's native binary or the application's trust model.
+
+Create and test a separate runtime directory:
+
+    npm run build:runtime
+    node scripts/check-runtime.mjs dist/runtime
+
+The builder compiles the app, copies an explicit set of runtime files and installs only production dependencies with scripts disabled. No test node, compiler, Safe test artifacts, .env, keystore or saved demo database is included. The destination must not already exist; choose a new path with npm run build:runtime -- PATH rather than overwriting a deployment. The smoke check uses a temporary database and verifies pages, assets, sample NFTs and the live-release guard. Start the artifact using npm start in its directory; use separate explicit configuration/state paths for deployment. No live deployment is performed by building it.
 
 ## Addresses and NFT IDs
 
