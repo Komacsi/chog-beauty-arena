@@ -1,6 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {submitLiveBet} from '../lib/live-bet.mjs';
+import {submitLiveBet,submitLiveHolderVotes} from '../lib/live-bet.mjs';
+import {holderTokensHash} from '../lib/holder-ballots.mjs';
+
+test('NFT voting binds the exact selected group and simulates one batch without requesting token approvals',async()=>{
+  const {options,calls}=fixture(),commit=async(...args)=>{calls.push(['holder-commit',...args]);return {wait:async()=>{}};};
+  commit.staticCall=async(...args)=>{calls.push(['holder-simulate',...args]);};
+  options.arena.commitHolderVotes=commit;options.arena.unstakedVoteUsed=async()=>false;
+  await submitLiveHolderVotes({...options,tokenIds:[5,1,3]});
+  assert.deepEqual(calls.map(c=>c[0]),['seal','holder-simulate','holder-commit']);
+  assert.equal(calls[0][1].holderTokenIdsHash,holderTokensHash([1,3,5]));assert.equal(calls[0][1].amount,'0');
+  assert.deepEqual(calls[2][2],[1,3,5]);
+});
+test('NFT voting rejects already used tokens and wallet changes before any signature',async()=>{
+  for(const scenario of ['used','encryption']){
+    const {options,calls}=fixture(scenario);
+    options.arena.unstakedVoteUsed=async()=>scenario==='used';
+    options.arena.commitHolderVotes=async()=>{throw Error('Should not submit');};
+    await assert.rejects(submitLiveHolderVotes({...options,tokenIds:[1]}),scenario==='used'?/already voted/:/Wallet changed/);
+    assert.ok(!calls.some(c=>c[0]==='approve' || c[0]==='commit'));
+  }
+});
 
 function fixture(changeAt){
   let changed=false;const calls=[];

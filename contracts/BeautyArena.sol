@@ -45,6 +45,7 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
         uint8 winner; bool settled; bool refund; bool cancelled;
     }
     struct Entry { bytes32 commitment; uint256 amount; uint8 side; bool committed; bool revealed; bool claimed; }
+    struct HolderEntry { address account; bytes32 commitment; bytes32 tokenIdsHash; uint256 weight; uint8 side; bool revealed; }
     struct Challenge { address creator; uint256 tokenId; uint256 createdAt; uint256 roundId; bool closed; }
     mapping(uint256 => Challenge) public challenges;
     mapping(uint256 => uint256) public tokenChallenge;
@@ -55,12 +56,18 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
     mapping(uint256 => uint256) public losses;
     mapping(uint256 => uint256) public draws;
     mapping(uint256 => mapping(uint256 => bool)) public unstakedVoteUsed;
+    mapping(uint256 => mapping(uint256 => HolderEntry)) public holderEntries;
+    mapping(uint256 => mapping(address => uint256)) public holderVoteCount;
+    uint256 public constant MAX_HOLDER_BATCH=50;
+    bytes32 private constant HOLDER_VOTE_DOMAIN=keccak256('CHOG_HOLDER_VOTE_V1');
     event RoundStarted(uint256 indexed id, uint256 nftA, uint256 nftB, uint256 endsAt, uint256 unlockAt);
     event ChallengeCreated(uint256 indexed id, address indexed creator, uint256 tokenId);
     event ChallengeCancelled(uint256 indexed id);
     event ChallengeAccepted(uint256 indexed id, address indexed opponent, uint256 tokenId, uint256 roundId);
     event VoteCommitted(uint256 indexed id, address indexed account, bytes32 commitment, uint256 amount, bytes sealedChoice);
     event VoteRevealed(uint256 indexed id, address indexed account, uint8 side, uint256 amount);
+    event HolderVotesCommitted(uint256 indexed id,address indexed account,uint256 indexed holderKey,uint256[] tokenIds,bytes32 commitment,bytes sealedChoice);
+    event HolderVotesRevealed(uint256 indexed id,address indexed account,uint256 indexed holderKey,uint8 side,uint256 votes);
     event RoundSettled(uint256 indexed id, uint8 winner, bool refund, bool cancelled);
     event Claimed(uint256 indexed id, address indexed account, uint256 gross, uint256 fee, uint256 amount);
     event RevealerChanged(address indexed previous,address indexed current);
@@ -171,6 +178,36 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
             require(chog.balanceOf(address(this))-beforeBalance==amount,'Transfer-tax token unsupported');
         }
         emit VoteCommitted(id,msg.sender,commitment,amount,sealedChoice);
+    }
+    function commitHolderVotes(uint256 id,uint256[] calldata tokenIds,bytes32 commitment,bytes calldata sealedChoice) external nonReentrant {
+        Round storage r=rounds[id];
+        require(revealer!=address(0) && id>interruptedThroughRound,'Round interrupted');
+        require(r.endsAt!=0 && block.timestamp<r.endsAt && !r.settled,'Betting closed');
+        require(tokenIds.length>0 && tokenIds.length<=MAX_HOLDER_BATCH,'Invalid NFT count');
+        require(commitment!=bytes32(0),'Empty commitment');
+        require(sealedChoice.length>0 && sealedChoice.length<=4096,'Invalid ciphertext size');
+        for(uint256 i=0;i<tokenIds.length;i++){
+            require(i==0 || tokenIds[i]>tokenIds[i-1],'NFTs must be unique and sorted');
+            require(collection.ownerOf(tokenIds[i])==msg.sender,'Not NFT owner');
+            require(!unstakedVoteUsed[id][tokenIds[i]],'NFT already used');
+            unstakedVoteUsed[id][tokenIds[i]]=true;
+        }
+        uint256 holderKey=tokenIds[0];
+        holderEntries[id][holderKey]=HolderEntry(msg.sender,commitment,keccak256(abi.encode(tokenIds)),tokenIds.length,0,false);
+        holderVoteCount[id][msg.sender]+=tokenIds.length;r.committedCount+=tokenIds.length;
+        emit HolderVotesCommitted(id,msg.sender,holderKey,tokenIds,commitment,sealedChoice);
+    }
+    function revealHolderVotes(uint256 id,uint256 holderKey,uint8 side,uint256 tokenId,bytes32 salt) external {
+        require(msg.sender==revealer,'Automatic revealer only');
+        Round storage r=rounds[id];
+        require(id>interruptedThroughRound,'Round interrupted');
+        require(r.endsAt!=0 && block.timestamp>=r.unlockAt && block.timestamp<r.revealEndsAt && !r.settled,'Not revealing');
+        require(side<2 && tokenId==(side==0?r.nftA:r.nftB),'Invalid NFT choice');
+        HolderEntry storage e=holderEntries[id][holderKey];require(e.account!=address(0) && !e.revealed,'Invalid NFT reveal');
+        require(e.commitment==keccak256(abi.encode(HOLDER_VOTE_DOMAIN,address(this),block.chainid,id,e.account,side,tokenId,e.tokenIdsHash,salt)),'Commitment mismatch');
+        e.revealed=true;e.side=side;r.revealedCount+=e.weight;
+        if(side==0)r.votesA+=e.weight;else r.votesB+=e.weight;
+        emit HolderVotesRevealed(id,e.account,holderKey,side,e.weight);
     }
     function revealVote(uint256 id,address account,uint8 side,uint256 tokenId,bytes32 salt) external {
         require(msg.sender==revealer,'Automatic revealer only');

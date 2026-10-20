@@ -9,6 +9,7 @@ import {sealBallot,drandClient} from '../lib/timelock.mjs';
 import {processRound} from '../lib/keeper.mjs';
 import {deploySafe} from '../test-support/safe.mjs';
 import {validateGovernance} from '../lib/governance.mjs';
+import {holderTokensHash,normalizeHolderTokens} from '../lib/holder-ballots.mjs';
 const compiled=compile({'Mocks.sol':{content:`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
@@ -48,11 +49,66 @@ async function fixture(historical=false){
   async function commit(i,side,amount,holderId=0){const id=Number(await arena.currentRoundId()),b={arena:await arena.getAddress(),chainId:Number((await provider.getNetwork()).chainId),roundId:id,account:await signers[i].getAddress(),side,tokenId:side?2:1,amount:amount.toString(),salt:makeSalt()};const tx=await arena.connect(signers[i]).commitVote(id,makeCommitment(b),amount,holderId,toUtf8Bytes('opaque encrypted choice'));const receipt=await tx.wait();ballots.push(b);return {b,receipt};}
   async function goto(time){const block=await provider.send('eth_getBlockByNumber',['latest',false]);if(Number(time)>Number(BigInt(block.timestamp)))await provider.send('evm_setNextBlockTimestamp',[Number(time)]);await provider.send('evm_mine',[]);}
   async function reveal(b){await(await arena.connect(signers[4]).revealVote(b.roundId,b.account,b.side,b.tokenId,b.salt)).wait();}
+  async function commitHolder(i,side,tokenIds){
+    tokenIds=normalizeHolderTokens(tokenIds);const roundId=Number(await arena.currentRoundId()),r=await arena.getRound(roundId);
+    const b={arena:arena.target,chainId:1337,roundId,account:await signers[i].getAddress(),side,tokenId:Number(side===0?r.nftA:r.nftB),amount:'0',holderKey:tokenIds[0],holderTokenIdsHash:holderTokensHash(tokenIds),salt:makeSalt()};
+    const receipt=await(await arena.connect(signers[i]).commitHolderVotes(roundId,tokenIds,makeCommitment(b),toUtf8Bytes('opaque NFT ballot'))).wait();return {b,receipt};
+  }
+  async function revealHolder(b){await(await arena.connect(signers[4]).revealHolderVotes(b.roundId,b.holderKey,b.side,b.tokenId,b.salt)).wait();}
   async function finish(){const id=Number(await arena.currentRoundId());await goto((await arena.getRound(id)).unlockAt);for(const b of ballots.filter(b=>b.roundId===id))await reveal(b);await(await arena.settle(id)).wait();}
   async function close(){await evm.close();}
-  return {provider,signers,token,nft,arena,commit,goto,reveal,finish,close,ballots,govern,governance,deploy};
+  return {provider,signers,token,nft,arena,commit,goto,reveal,commitHolder,revealHolder,finish,close,ballots,govern,governance,deploy};
   }catch(error){await evm.close();throw error;}
 }
+test('five owned NFTs submit five sealed votes without transferring NFTs or CHOG',async()=>{const f=await fixture();try{
+  const account=await f.signers[0].getAddress(),before=await f.token.balanceOf(account),ids=[1,3,5,6,7];
+  for(const tokenId of [5,6,7])await(await f.nft.mint(account,tokenId)).wait();
+  const {b,receipt}=await f.commitHolder(0,0,ids),r=await f.arena.getRound(1),entry=await f.arena.holderEntries(1,1);
+  assert.equal(r.committedCount,5n);assert.equal(r.votesA,0n);assert.equal(r.totalCommitted,0n);assert.equal(entry.weight,5n);assert.equal(entry.revealed,false);
+  assert.equal(await f.token.balanceOf(account),before);for(const tokenId of ids){assert.equal(await f.nft.ownerOf(tokenId),account);assert.equal(await f.arena.unstakedVoteUsed(1,tokenId),true);}
+  const event=receipt.logs.map(l=>{try{return f.arena.interface.parseLog(l);}catch{return null;}}).find(e=>e?.name==='HolderVotesCommitted');assert.ok(event);assert.equal(event.fragment.inputs.some(i=>i.name==='side'),false);
+  await assert.rejects(f.arena.revealHolderVotes.staticCall(1,1,0,1,b.salt));
+  await f.goto(r.unlockAt);await assert.rejects(f.arena.connect(f.signers[1]).revealHolderVotes.staticCall(1,1,0,1,b.salt));
+  await f.revealHolder(b);assert.equal((await f.arena.getRound(1)).votesA,5n);assert.equal((await f.arena.getRound(1)).revealedCount,5n);
+  await assert.rejects(f.arena.connect(f.signers[4]).revealHolderVotes.staticCall(1,1,0,1,b.salt));
+  await(await f.arena.settle(1)).wait();assert.equal(await f.arena.payout(1,account),0n);assert.equal(await f.arena.treasuryCredit(),0n);
+}finally{await f.close();}});
+test('NFT votes can be submitted in several groups; transfer cannot reuse a used NFT and a new round can',async()=>{const f=await fixture();try{
+  const a=await f.commitHolder(0,0,[3]);const b=await f.commitHolder(0,0,[1]);
+  await(await f.nft.transferFrom(await f.signers[0].getAddress(),await f.signers[1].getAddress(),3)).wait();
+  await assert.rejects(f.commitHolder(1,0,[3]),/NFT already used/);
+  await f.goto((await f.arena.getRound(1)).unlockAt);await f.revealHolder(a.b);await f.revealHolder(b.b);await(await f.arena.settle(1)).wait();
+  assert.equal((await f.arena.getRound(1)).votesA,2n);
+  await(await f.arena.createChallenge(1)).wait();await(await f.arena.connect(f.signers[4]).acceptChallenge(2,2)).wait();
+  const next=await f.commitHolder(1,0,[3]);await f.goto((await f.arena.getRound(2)).unlockAt);await f.revealHolder(next.b);assert.equal((await f.arena.getRound(2)).votesA,1n);
+}finally{await f.close();}});
+test('invalid NFT batches roll back all usage markers; zero token ID is supported',async()=>{const f=await fixture();try{
+  const commitment='0x'+'ab'.repeat(32);
+  for(const ids of [[],[1,1],[3,1],[1,2],Array.from({length:51},(_,i)=>i)])await assert.rejects(f.arena.commitHolderVotes.staticCall(1,ids,commitment,'0x01'));
+  await assert.rejects((async()=>{await(await f.arena.commitHolderVotes(1,[1,2],commitment,'0x01',{gasLimit:1000000})).wait();})());
+  assert.equal(await f.arena.unstakedVoteUsed(1,1),false);assert.equal((await f.arena.getRound(1)).committedCount,0n);
+  await(await f.nft.mint(await f.signers[0].getAddress(),0)).wait();const {b}=await f.commitHolder(0,1,[0]);
+  await f.goto((await f.arena.getRound(1)).unlockAt);await f.revealHolder(b);assert.equal((await f.arena.getRound(1)).votesB,1n);
+}finally{await f.close();}});
+test('keeper opens five NFT votes automatically, skips a broken NFT ballot and preserves paid payouts',async()=>{const f=await fixture(true);try{
+  const beacon=JSON.parse(await readFile(new URL('./fixtures/drand-round-1.json',import.meta.url),'utf8')),client=drandClient(async()=>({ok:true,json:async()=>beacon})),account=await f.signers[0].getAddress();
+  for(const tokenId of [5,6,7,8])await(await f.nft.mint(account,tokenId)).wait();
+  await f.commitHolder(0,0,[8]); // Deliberately broken ciphertext is excluded at the deadline.
+  const ballot={arena:f.arena.target,chainId:1337,roundId:1,account,side:0,tokenId:1,amount:'0',holderKey:1,holderTokenIdsHash:holderTokensHash([1,3,5,6,7])};
+  const sealed=await sealBallot(ballot,1,client);
+  await(await f.arena.commitHolderVotes(1,[1,3,5,6,7],sealed.commitment,toUtf8Bytes(sealed.sealedChoice))).wait();
+  for(const [i,side]of [[1,0],[2,1]]){
+    const b={arena:f.arena.target,chainId:1337,roundId:1,account:await f.signers[i].getAddress(),side,tokenId:side?2:1,amount:lots(5).toString()},s=await sealBallot(b,1,client);
+    await(await f.arena.connect(f.signers[i]).commitVote(1,s.commitment,lots(5),0,toUtf8Bytes(s.sealedChoice))).wait();
+  }
+  const r=await f.arena.getRound(1);await f.goto(r.unlockAt);
+  const options={arena:f.arena.connect(f.signers[4]),provider:f.provider,fromBlock:0,client,id:1};
+  const result=await processRound(options);assert.equal(result.revealed,7);assert.equal(result.failed,1);assert.equal(result.phase,'opening');
+  const opened=await f.arena.getRound(1);assert.equal(opened.votesA,6n);assert.equal(opened.votesB,1n);
+  await f.goto(r.revealEndsAt);assert.equal((await processRound(options)).phase,'settled');
+  assert.equal(await f.arena.payout(1,account),0n);assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),lots('9.9'));
+  assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),0n);
+}finally{await f.close();}});
 test('contract commitments contain no side or per-NFT totals during betting',async()=>{const f=await fixture();try{
   const {b,receipt}=await f.commit(1,1,lots(10)),r=await f.arena.getRound(1),e=await f.arena.entries(1,b.account);assert.equal(r.poolA,0n);assert.equal(r.poolB,0n);assert.equal(r.votesA,0n);assert.equal(r.votesB,0n);assert.equal(r.totalCommitted,lots(10));assert.equal(e.revealed,false);
   const log=receipt.logs.map(l=>{try{return f.arena.interface.parseLog(l);}catch{return null;}}).find(l=>l?.name==='VoteCommitted');assert.ok(log);assert.equal(log.fragment.inputs.some(x=>x.name==='side'),false);
