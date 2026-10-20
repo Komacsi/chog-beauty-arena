@@ -1,4 +1,4 @@
-import {BrowserProvider,Contract,ContractFactory,parseUnits} from 'ethers';
+import {BrowserProvider,Contract,ContractFactory,formatUnits,parseUnits} from 'ethers';
 import {formatTokenAmount} from '../lib/amounts.mjs';
 import {sealBallot} from '../lib/timelock.mjs';
 import {phase,DEMO_ARENA} from '../lib/commitments.mjs';
@@ -177,6 +177,7 @@ function render(){
     if(p==='interrupted' && config.mode==='live'){content.insertAdjacentHTML('beforeend','<div class="utility-row"><button id="finalize-refunds">Finalize refunds</button></div>');$('#finalize-refunds').onclick=()=>run(async()=>{if(!signer)await connect();await(await contract().settle(r.id)).wait();toast('Refunds are available to claim');});}
     bindHolderVotes(); for(const b of document.querySelectorAll('[data-side]'))b.onclick=()=>{if($('#holder-side'))$('#holder-side').value=b.dataset.side;$('#holder-votes')?.scrollIntoView({behavior:'smooth',block:'center'});};
     if($('#stake'))$('#stake').onclick=()=>run(()=>cast(Number($('#side').value),$('#amount').value));
+    if($('#max-bet'))$('#max-bet').onclick=()=>run(fillMaxBet);
     if(config.mode==='demo')bindDemoWallet();
   }
   if(config.mode==='live' && address.toLowerCase()===config.treasury.toLowerCase()){
@@ -208,7 +209,7 @@ function participationPanels(r){
   <div class="holder-grid">${owned.map(id=>{const n=nft(id),disabled=used.has(id);return `<label class="holder-choice ${disabled?'is-used':''}"><input type="checkbox" data-holder-nft="${id}" ${ids.includes(id)?'checked':''} ${disabled?'disabled':''}><img src="${esc(n?.image)}" alt="" width="52" height="52"><span><strong>${esc(n?.name || 'CHOG')}</strong><small>${disabled?'Already voted':'1 vote'}</small></span></label>`;}).join('')}</div>
   <div class="bet-controls"><div class="field"><label for="holder-side">CONTENDER FOR SELECTED NFTs</label><select id="holder-side">${contenderOptions(r)}</select></div><button type="button" id="submit-nft-votes" ${!ids.length?'disabled':''}>Submit ${ids.length} NFT vote${ids.length===1?'':'s'}</button></div>`:'<p class="holder-empty">Connect a wallet with an imported Chog NFT to vote without a CHOG bet. You can also participate by placing a bet below.</p>'}</section>
   <section class="bet-panel"><div><h3>Place a CHOG bet</h3><p>You can place bets alongside your NFT votes. Each bet must be at least 5,000 CHOG. Only CHOG bets receive payouts. Bets on the same contender are combined into one payout per battle.<br>Your combined winning bets + share of the opposing bank are calculated first; then 1% is deducted once. No fees on refunds.<br>Choices open automatically. No second action is required.</p></div>
-  <div><div class="bet-controls"><div class="field"><label for="side">YOUR CONTENDER</label><select id="side">${contenderOptions(r)}</select></div><div class="field"><label for="amount">BET · CHOG · MIN. 5,000</label><input id="amount" type="number" min="5000" step="any" value="5000" placeholder="Minimum 5,000 CHOG" inputmode="decimal" aria-describedby="paid-vote-note"></div></div>
+  <div><div class="bet-controls"><div class="field"><label for="side">YOUR CONTENDER</label><select id="side">${contenderOptions(r)}</select></div><div class="field"><label for="amount">BET · CHOG · MIN. 5,000</label><div class="amount-input"><input id="amount" type="number" min="5000" step="any" value="5000" placeholder="Minimum 5,000 CHOG" inputmode="decimal" aria-describedby="paid-vote-note"><button type="button" id="max-bet" aria-label="Use maximum CHOG balance">Max</button></div></div></div>
   <p id="paid-vote-note" class="paid-vote-note">Only your first CHOG bet in this battle adds 1 vote. You can place more bets on either contender; they participate in payouts but add no votes.${state.betCount?' You have already used your CHOG vote.':''}</p><button id="stake">Place a bet</button></div></section>`;
 }
 function bindHolderVotes(){
@@ -236,6 +237,23 @@ async function castHolder(side){
     holderSelections.set(key,(holderSelections.get(key) || []).filter(id=>!tokenIds.includes(id)));
   }
   toast(ids.length+' NFT vote'+(ids.length===1?'':'s')+' encrypted. Opening is automatic.');
+}
+async function fillMaxBet(){
+  const roundId=state.round.id;let balance;
+  if(config.mode==='demo'){
+    const account=accountAddress(),fresh=await api('state?round='+roundId);
+    if(!sameAddress(fresh.account.address,account) || !sameAddress(accountAddress(),account))throw Error('Demo wallet changed. Please retry.');
+    balance=BigInt(fresh.account.balance);state.account.balance=balance.toString();
+  }else{
+    if(!signer)await connect();
+    const account=address,capturedSigner=signer,{assertWallet}=capturedWallet(account);
+    await assertWallet();
+    balance=await new Contract(config.token,['function balanceOf(address) view returns(uint256)'],capturedSigner).balanceOf(account);
+    await assertWallet();
+  }
+  if(state.round?.id!==roundId || phase(state.round)!=='commit')throw Error('Betting is closed');
+  // Fill the exact balance, independently of the rounded display elsewhere.
+  $('#amount').value=formatUnits(balance,18);$('#amount').focus();
 }
 async function cast(side,amountText){
   const r=state.round;if(phase(r)!=='commit')throw Error('Betting is closed');const amount=parseUnits(amountText || '0',18);
