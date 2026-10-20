@@ -48,9 +48,9 @@ try{
     await(await arena.connect(signers[i]).commitVote(1,makeCommitment(ballot),amount,0,toUtf8Bytes('local-fork-manual-reveal'))).wait();ballots.push(ballot);
   }
   const repeatAccount=await signers[0].getAddress();
-  await(await token.connect(localSigner(tokenSource)).transfer(repeatAccount,amount)).wait();await(await token.connect(signers[0]).approve(arena.target,amount)).wait();
-  const repeat={...ballots[0],betNonce:1,side:1,tokenId:nftB,salt:makeSalt()};
-  await(await arena.connect(signers[0]).commitVote(1,makeCommitment(repeat),amount,1,'0x01')).wait();ballots.push(repeat);
+  await(await token.connect(localSigner(tokenSource)).transfer(repeatAccount,2n*amount)).wait();await(await token.connect(signers[0]).approve(arena.target,2n*amount)).wait();
+  const repeat={...ballots[0],betNonce:1,amount:(2n*amount).toString(),salt:makeSalt()};
+  await(await arena.connect(signers[0]).commitVote(1,makeCommitment(repeat),2n*amount,1,'0x01')).wait();ballots.push(repeat);
   const excluded=await signers[4].getAddress();
   await(await token.connect(localSigner(tokenSource)).transfer(excluded,amount)).wait();
   await(await token.connect(signers[4]).approve(await arena.getAddress(),amount)).wait();
@@ -62,15 +62,15 @@ try{
   const opened=await provider.send('eth_getBlockByNumber',['latest',false]);await provider.send('evm_increaseTime',[Number(round.revealEndsAt)-Number(BigInt(opened.timestamp))]);await provider.send('evm_mine',[]);
   await(await arena.settle(1)).wait();assert.equal((await arena.getRound(1)).cancelled,false);
   assert.equal((await arena.getRound(1)).votesA,3n);assert.equal((await arena.getRound(1)).votesB,2n);
-  assert.equal((await arena.payoutBetBreakdown(1,repeatAccount,1)).amount,0n);
+  assert.equal((await arena.walletBanks(1,repeatAccount)).amountA,3n*amount);
   assert.equal(await arena.payout(1,excluded),amount);await(await arena.connect(signers[4]).claim(1)).wait();
   for(let i=0;i<2;i++){
     const p=await arena.payoutBreakdown(1,ballots[i].account),before=await token.balanceOf(ballots[i].account);
-    assert.equal(p.gross,parseUnits('10000',18));assert.equal(p.fee,parseUnits('100',18));
+    assert.equal(p.gross,parseUnits(i===0?'18750':'6250',18));assert.equal(p.fee,parseUnits(i===0?'187.5':'62.5',18));
     await(await arena.connect(signers[i]).claim(1)).wait();assert.equal(await token.balanceOf(ballots[i].account),before+p.amount);
   }
   await(await arena.connect(signers[4]).withdrawFees()).wait();assert.equal(await token.balanceOf(await arena.getAddress()),0n);
-  assert.equal(await token.balanceOf(await signers[4].getAddress()),amount+parseUnits('200',18));
-  const result={checkedAt:new Date().toISOString(),upstreamChainId:CHAIN_ID,forkBlock:block,localChainId:1337,protocolVersion:6,testEvm:'Anvil 1.7.1',nftA,nftB,depositAndPayout:'passed',nftVotes:'one per NFT, no NFT transfer',repeatedBets:'separate payouts; only bet nonce zero adds a vote',result:'3–2',excludedEntryRefund:'5000 CHOG, no fee',winningPayout:'10000 gross, 100 fee, 9900 net each',authorizedRevealer:'enforced',realTransactionsSent:0,limitations:'Single-state integration test in Shanghai EVM, manual service reveals, read-only RPC gateway, missing Monad withdrawals array normalized to empty. Not a Monad consensus/gas test, source audit, protocol proof, outage or future admin-behavior guarantee.'};
+  assert.equal(await token.balanceOf(await signers[4].getAddress()),amount+parseUnits('250',18));
+  const result={checkedAt:new Date().toISOString(),upstreamChainId:CHAIN_ID,forkBlock:block,localChainId:1337,protocolVersion:7,testEvm:'Anvil 1.7.1',nftA,nftB,depositAndPayout:'passed',nftVotes:'one per NFT, no NFT transfer',repeatedBets:'summed per wallet and side; one round payout and fee; only bet nonce zero adds a vote',result:'3–2',excludedEntryRefund:'5000 CHOG, no fee',winningPayout:'18750 gross / 18562.5 net and 6250 gross / 6187.5 net; 250 total fees',authorizedRevealer:'enforced',realTransactionsSent:0,limitations:'Single-state integration test in Shanghai EVM, manual service reveals, read-only RPC gateway, missing Monad withdrawals array normalized to empty. Not a Monad consensus/gas test, source audit, protocol proof, outage or future admin-behavior guarantee.'};
   const output=resolve(process.argv[2] || 'outputs/security-fork.json');await mkdir(dirname(output),{recursive:true});await writeFile(output,JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2));
 }finally{await evm?.close();await gateway?.close();upstream.destroy();}

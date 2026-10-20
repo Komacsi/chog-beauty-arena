@@ -1,6 +1,6 @@
 # Chog: Beauty Arena
 
-24-hour contests between two Chog Genesis NFTs. Each owned NFT gives one vote without a CHOG bet. NFT groups may back different sides. The same wallet may also place multiple CHOG bets; only its first paid bet adds one additional vote. Every bet participates in payouts. Non-holders participate by betting. See [NFT_VOTING.md](NFT_VOTING.md) for protocol 6.
+24-hour contests between two Chog Genesis NFTs. Each owned NFT gives one vote without a CHOG bet. NFT groups may back different sides. The same wallet may also place multiple CHOG bets; only its first paid bet adds one additional vote. Every bet participates in payouts. Non-holders participate by betting. See [NFT_VOTING.md](NFT_VOTING.md) for protocol 7.
 
 ## Holder-created battles and profiles
 
@@ -40,17 +40,19 @@ After closing, choices become publicly readable. This provides pre-close choice 
 
 The contender with more revealed votes wins, regardless of bet amounts. A complete, non-tied winner earns one NFT leaderboard point.
 
-When both sides have bets, calculate each winning bet separately. A wallet may have multiple independently claimable bets, including bets on opposite sides:
+For each wallet and battle, add its revealed bets on the winning side. Calculate one proportional payout and deduct 1% once. Revealed losing-side bets do not join that wallet's winning sum. Unopened deposits are refunded separately within the same claim, without a fee:
 
 ```text
-gross = ownBet + floor(ownBet * losingPool / winningPool)
-fee   = floor(gross * 100 / 10000)
-net   = gross - fee
+winningGross = sumOfWinningBets + floor(sumOfWinningBets * losingPool / winningPool)
+fee   = floor(winningGross * 100 / 10000)
+net   = winningGross - fee + unopenedRefund
 ```
 
 Fees accrue only when the participant claims. The treasury withdraws its accrued fees separately. Draws and one-sided pools return each bet in full without fees. Unopened entries receive their own bets back without fees, separately from the valid pools. Historical cancelled demo rounds retain their original refunds. Refunds for one-sided pools do not erase a valid winning NFT's point. Integer rounding may leave tiny residual amounts; there is no owner function to sweep participant funds.
 
-Example: winning bets 10,000 and 30,000, losing pool 60,000 CHOG. Gross payouts are 25,000 and 75,000; fees are 250 and 750; net payouts are 24,750 and 74,250 CHOG. A winning holder who participated without a bet gets an NFT voting result, but no token payout.
+Bet amounts are stored, summed and refunded exactly in CHOG's 18-decimal units. The UI uses a compact display of up to three decimals; this visual formatting never changes the amounts used in calculations or transfers. Proportional shares and percentage fees can only be transferred in whole minimum token units; sub-unit fractions remain contract dust.
+
+Example: two different wallets have winning totals of 10,000 and 30,000, with a losing pool of 60,000 CHOG. Gross payouts are 25,000 and 75,000; fees are 250 and 750; net payouts are 24,750 and 74,250 CHOG. A winning holder who participated without a bet gets an NFT voting result, but no token payout.
 
 ## Run locally
 

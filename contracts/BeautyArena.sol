@@ -44,7 +44,8 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
         uint256 totalCommitted; uint256 committedCount; uint256 revealedCount;
         uint8 winner; bool settled; bool refund; bool cancelled;
     }
-    struct Entry { bytes32 commitment; uint256 amount; uint8 side; bool committed; bool revealed; bool claimed; }
+    struct Entry { bytes32 commitment; uint256 amount; uint8 side; bool committed; bool revealed; }
+    struct WalletBank { uint256 total; uint256 amountA; uint256 amountB; bool claimed; }
     struct HolderEntry { address account; bytes32 commitment; bytes32 tokenIdsHash; uint256 weight; uint8 side; bool revealed; }
     struct Challenge { address creator; uint256 tokenId; uint256 createdAt; uint256 roundId; bool closed; }
     mapping(uint256 => Challenge) public challenges;
@@ -53,6 +54,7 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
     mapping(uint256 => Round) internal rounds;
     mapping(uint256 => mapping(address => mapping(uint256 => Entry))) public bets;
     mapping(uint256 => mapping(address => uint256)) public betCount;
+    mapping(uint256 => mapping(address => WalletBank)) public walletBanks;
     mapping(uint256 => uint256) public points;
     mapping(uint256 => uint256) public losses;
     mapping(uint256 => uint256) public draws;
@@ -71,7 +73,7 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
     event HolderVotesCommitted(uint256 indexed id,address indexed account,uint256 indexed holderKey,uint256[] tokenIds,bytes32 commitment,bytes sealedChoice);
     event HolderVotesRevealed(uint256 indexed id,address indexed account,uint256 indexed holderKey,uint8 side,uint256 votes);
     event RoundSettled(uint256 indexed id, uint8 winner, bool refund, bool cancelled);
-    event Claimed(uint256 indexed id, address indexed account, uint256 indexed betNonce, uint256 gross, uint256 fee, uint256 amount);
+    event Claimed(uint256 indexed id, address indexed account, uint256 gross, uint256 fee, uint256 amount);
     event RevealerChanged(address indexed previous,address indexed current);
     event RevealerRevoked(address indexed previous,uint256 interruptedThroughRound);
     event RoundEmergencyCancelled(uint256 indexed id,address indexed caller);
@@ -170,6 +172,7 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
         Entry storage e=bets[id][msg.sender][betNonce];
         betCount[id][msg.sender]++;
         e.commitment=commitment; e.amount=amount; e.committed=true;
+        walletBanks[id][msg.sender].total+=amount;
         r.totalCommitted+=amount; r.committedCount++;
         if(amount>0){
             uint256 beforeBalance=chog.balanceOf(address(this));
@@ -217,6 +220,7 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
         Entry storage e=bets[id][account][betNonce]; require(e.committed && !e.revealed,'Invalid reveal');
         require(e.commitment==keccak256(abi.encode(BET_DOMAIN,address(this),block.chainid,id,account,betNonce,side,tokenId,e.amount,salt)),'Commitment mismatch');
         e.revealed=true; e.side=side; r.revealedCount++;
+        if(side==0)walletBanks[id][account].amountA+=e.amount;else walletBanks[id][account].amountB+=e.amount;
         // Only the first committed bet carries a vote, even if it never opens.
         if(side==0){if(betNonce==0)r.votesA++;r.poolA+=e.amount;}else{if(betNonce==0)r.votesB++;r.poolB+=e.amount;}
         emit VoteRevealed(id,account,betNonce,side,e.amount);
@@ -238,26 +242,25 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
         else{r.winner=r.votesA>r.votesB?0:1;points[r.winner==0?r.nftA:r.nftB]++;losses[r.winner==0?r.nftB:r.nftA]++;r.refund=r.poolA==0 || r.poolB==0;}
         emit RoundSettled(id,r.winner,r.refund,r.cancelled);
     }
-    function payoutBetBreakdown(uint256 id,address account,uint256 betNonce) public view returns(uint256 gross,uint256 fee,uint256 amount){
-        Round storage r=rounds[id]; Entry storage e=bets[id][account][betNonce];
-        if(!r.settled || !e.committed || e.claimed || e.amount==0)return(0,0,0);
-        if(!e.revealed || r.refund)return(e.amount,0,e.amount);
-        if(e.side!=r.winner)return(0,0,0);
+    function payoutBreakdown(uint256 id,address account) public view returns(uint256 gross,uint256 fee,uint256 amount){
+        Round storage r=rounds[id]; WalletBank storage bank=walletBanks[id][account];
+        if(!r.settled || bank.claimed || bank.total==0)return(0,0,0);
+        if(r.refund)return(bank.total,0,bank.total);
+        // Unopened deposits are returned outside the valid pools, without fees.
+        uint256 unopened=bank.total-bank.amountA-bank.amountB;
+        uint256 winningBets=r.winner==0?bank.amountA:bank.amountB;
         uint256 winningPool=r.winner==0?r.poolA:r.poolB;
         uint256 losingPool=r.winner==0?r.poolB:r.poolA;
-        gross=e.amount+Math.mulDiv(e.amount,losingPool,winningPool);
-        fee=Math.mulDiv(gross,FEE_BPS,10000);amount=gross-fee;
+        uint256 winningGross=winningBets+Math.mulDiv(winningBets,losingPool,winningPool);
+        fee=Math.mulDiv(winningGross,FEE_BPS,10000);gross=winningGross+unopened;amount=gross-fee;
     }
-    // First-bet views retained for integrations; later bets use their own nonce.
+    // Individual entries remain readable; payouts use the wallet's round totals.
     function entries(uint256 id,address account) external view returns(Entry memory){return bets[id][account][0];}
-    function payoutBreakdown(uint256 id,address account) public view returns(uint256 gross,uint256 fee,uint256 amount){return payoutBetBreakdown(id,account,0);}
     function payout(uint256 id,address account) public view returns(uint256){(,,uint256 amount)=payoutBreakdown(id,account);return amount;}
-    function claim(uint256 id) external nonReentrant {_claim(id,0);}
-    function claimBet(uint256 id,uint256 betNonce) external nonReentrant {_claim(id,betNonce);}
-    function _claim(uint256 id,uint256 betNonce) internal {
-        (uint256 gross,uint256 fee,uint256 amount)=payoutBetBreakdown(id,msg.sender,betNonce);
-        require(amount>0,'Nothing to claim');bets[id][msg.sender][betNonce].claimed=true;treasuryCredit+=fee;
-        chog.safeTransfer(msg.sender,amount);emit Claimed(id,msg.sender,betNonce,gross,fee,amount);
+    function claim(uint256 id) external nonReentrant {
+        (uint256 gross,uint256 fee,uint256 amount)=payoutBreakdown(id,msg.sender);
+        require(amount>0,'Nothing to claim');walletBanks[id][msg.sender].claimed=true;treasuryCredit+=fee;
+        chog.safeTransfer(msg.sender,amount);emit Claimed(id,msg.sender,gross,fee,amount);
     }
     function withdrawFees() external nonReentrant {
         require(msg.sender==treasury,'Treasury only');uint256 amount=treasuryCredit;require(amount>0,'No fees');

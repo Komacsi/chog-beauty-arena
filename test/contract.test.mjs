@@ -32,6 +32,30 @@ contract MockToken is ERC20 {
 contract MockNFT is ERC721 { constructor() ERC721('Chog','CHOG') {} function mint(address a,uint256 n) external {_mint(a,n);} function burn(uint256 n) external {require(ownerOf(n)==msg.sender);_burn(n);} }`}});
 // Monetary fixture values below are lots of 1,000 CHOG.
 const lots=n=>parseUnits(String(Number(n)*1000),18);
+test('deposits and aggregate refunds preserve the exact amount down to the last CHOG unit',async()=>{const f=await fixture();try{
+  const account=await f.signers[1].getAddress(),before=await f.token.balanceOf(account),minimum=lots(5);
+  await f.commit(1,0,minimum+1n);await f.commit(1,1,minimum+2n);await f.commit(2,1,minimum+3n);
+  assert.equal((await f.arena.walletBanks(1,account)).total,2n*minimum+3n);assert.equal(await f.token.balanceOf(account),before-2n*minimum-3n);
+  await f.finish();const p=await f.arena.payoutBreakdown(1,account);assert.equal(p.gross,2n*minimum+3n);assert.equal(p.amount,2n*minimum+3n);assert.equal(p.fee,0n);
+  await(await f.arena.connect(f.signers[1]).claim(1)).wait();assert.equal(await f.token.balanceOf(account),before);
+}finally{await f.close();}});
+test('aggregate payouts round the summed winning bets and deduct one fee, with a constant-time claim',async()=>{const f=await fixture();try{
+  const minimum=lots(5),a=minimum+49n;
+  await f.commit(1,0,a);await f.commit(1,0,a);await f.commit(2,0,a);await f.commit(3,1,3n*a+2n);await f.finish();
+  const account=await f.signers[1].getAddress(),p=await f.arena.payoutBreakdown(1,account);
+  assert.equal(p.gross,4n*minimum+197n);assert.equal(p.fee,4n*minimum/100n+1n);assert.equal(p.amount,p.gross-p.fee);
+  await(await f.arena.connect(f.signers[1]).claim(1)).wait();assert.equal((await f.arena.walletBanks(1,account)).claimed,true);
+  await assert.rejects(f.arena.connect(f.signers[1]).claim.staticCall(1));assert.equal(await f.arena.payout(1,account),0n);
+  await(await f.arena.connect(f.signers[2]).claim(1)).wait();await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();assert.equal(await f.token.balanceOf(f.arena.target),1n);
+}finally{await f.close();}});
+
+test('one claim combines a winning aggregate and unopened refunds without taxing the refund',async()=>{const f=await fixture();try{
+  const a=await f.commit(1,0,lots(5)),b=await f.commit(1,0,lots(5));await f.commit(1,1,lots(7));const c=await f.commit(2,0,lots(5)),loser=await f.commit(3,1,lots(15));
+  await f.goto((await f.arena.getRound(1)).unlockAt);for(const e of [a,b,c,loser])await f.reveal(e.b);
+  await f.goto((await f.arena.getRound(1)).revealEndsAt);await(await f.arena.settle(1)).wait();
+  const p=await f.arena.payoutBreakdown(1,a.b.account);assert.equal(p.gross,lots(27));assert.equal(p.fee,lots('0.2'));assert.equal(p.amount,lots('26.8'));
+  await(await f.arena.connect(f.signers[1]).claim(1)).wait();await(await f.arena.connect(f.signers[2]).claim(1)).wait();await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();assert.equal(await f.token.balanceOf(f.arena.target),0n);
+}finally{await f.close();}});
 test('NFT groups may back opposite sides while repeated CHOG bets only add the first paid vote',async()=>{const f=await fixture();try{
   const a=await f.commitHolder(0,0,[1]),b=await f.commitHolder(0,1,[3]);
   await f.commit(0,0,lots(5));await f.commit(0,1,lots(10));await f.commit(0,0,lots(5));
@@ -41,8 +65,9 @@ test('NFT groups may back opposite sides while repeated CHOG bets only add the f
   for(const ballot of f.ballots)await f.reveal(ballot);
   const r=await f.arena.getRound(1);assert.equal(r.votesA,3n);assert.equal(r.votesB,2n);assert.equal(r.poolA,lots(15));assert.equal(r.poolB,lots(15));
   assert.equal(r.committedCount,7n);assert.equal(r.revealedCount,7n);await(await f.arena.settle(1)).wait();
-  for(const nonce of [0,2]){const p=await f.arena.payoutBetBreakdown(1,account,nonce);assert.equal(p.gross,lots(10));assert.equal(p.fee,lots('0.1'));assert.equal(p.amount,lots('9.9'));await(await f.arena.claimBet(1,nonce)).wait();await assert.rejects(f.arena.claimBet.staticCall(1,nonce));}
-  assert.equal((await f.arena.payoutBetBreakdown(1,account,1)).amount,0n);await assert.rejects(f.arena.connect(f.signers[1]).claimBet.staticCall(1,2));
+  const payout=await f.arena.payoutBreakdown(1,account);assert.equal(payout.gross,lots(20));assert.equal(payout.fee,lots('0.2'));assert.equal(payout.amount,lots('19.8'));
+  await(await f.arena.claim(1)).wait();await assert.rejects(f.arena.claim.staticCall(1));
+  await assert.rejects(f.arena.connect(f.signers[1]).claim.staticCall(1));
   await(await f.arena.connect(f.signers[2]).claim(1)).wait();assert.equal(await f.arena.treasuryCredit(),lots('0.3'));
   await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();assert.equal(await f.token.balanceOf(f.arena.target),0n);
   for(const tokenId of [1,3])assert.equal(await f.nft.ownerOf(tokenId),account);
@@ -57,14 +82,14 @@ test('an unopened first CHOG bet never transfers its vote to a later bet; every 
   await assert.rejects(f.arena.connect(f.signers[4]).revealVote.staticCall(1,later.b.account,0,1,2,later.b.salt),/mismatch/);
   await f.reveal(later.b);assert.equal((await f.arena.getRound(1)).votesB,0n);await assert.rejects(f.arena.settle.staticCall(1),/incomplete/);
   await f.goto((await f.arena.getRound(1)).revealEndsAt);await(await f.arena.settle(1)).wait();
-  for(const nonce of [0,1]){assert.equal((await f.arena.payoutBetBreakdown(1,first.b.account,nonce)).amount,lots(5));await(await f.arena.connect(f.signers[1]).claimBet(1,nonce)).wait();}
+  assert.equal(await f.arena.payout(1,first.b.account),lots(10));await(await f.arena.connect(f.signers[1]).claim(1)).wait();
   assert.equal(await f.arena.treasuryCredit(),0n);assert.equal(await f.arena.draws(1),0n);assert.equal(await f.token.balanceOf(f.arena.target),0n);
 }finally{await f.close();}});
 
 test('NFT and repeated CHOG entries all refund after emergency cancellation',async()=>{const f=await fixture();try{
   await f.commitHolder(0,0,[1,3]);await f.commit(0,0,lots(5));await f.commit(0,1,lots(5));
   await f.govern('revokeRevealer');await(await f.arena.settle(1)).wait();
-  for(const nonce of [0,1])await(await f.arena.claimBet(1,nonce)).wait();
+  assert.equal(await f.arena.payout(1,await f.signers[0].getAddress()),lots(10));await(await f.arena.claim(1)).wait();
   assert.equal(await f.token.balanceOf(f.arena.target),0n);assert.equal(await f.arena.treasuryCredit(),0n);assert.equal(await f.arena.points(1),0n);
 }finally{await f.close();}});
 async function fixture(historical=false){
@@ -141,8 +166,7 @@ test('keeper opens five NFT votes automatically, skips a broken NFT ballot and p
   const result=await processRound(options);assert.equal(result.revealed,8);assert.equal(result.failed,1);assert.equal(result.phase,'opening');
   const opened=await f.arena.getRound(1);assert.equal(opened.votesA,6n);assert.equal(opened.votesB,1n);
   await f.goto(r.revealEndsAt);assert.equal((await processRound(options)).phase,'settled');
-  assert.equal(await f.arena.payout(1,account),0n);assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),lots('7.425'));
-  assert.equal((await f.arena.payoutBetBreakdown(1,await f.signers[1].getAddress(),1)).amount,lots('7.425'));
+  assert.equal(await f.arena.payout(1,account),0n);assert.equal(await f.arena.payout(1,await f.signers[1].getAddress()),lots('14.85'));
   assert.equal(await f.arena.payout(1,await f.signers[2].getAddress()),0n);
 }finally{await f.close();}});
 test('contract commitments contain no side or per-NFT totals during betting',async()=>{const f=await fixture();try{
@@ -308,7 +332,7 @@ test('security: token callbacks cannot reenter deposits or payouts; failed payou
   const p=await f.arena.payoutBreakdown(1,account),bank=await f.token.balanceOf(arena);
   await(await f.token.configure(false,arena,zero,'0x')).wait();
   await assert.rejects((async()=>{await(await f.arena.connect(f.signers[1]).claim(1,{gasLimit:500000})).wait();})());
-  assert.equal((await f.arena.entries(1,account)).claimed,false);assert.equal(await f.arena.treasuryCredit(),0n);assert.equal(await f.token.balanceOf(arena),bank);
+  assert.equal((await f.arena.walletBanks(1,account)).claimed,false);assert.equal(await f.arena.treasuryCredit(),0n);assert.equal(await f.token.balanceOf(arena),bank);
   await(await f.token.configure(false,zero,arena,f.arena.interface.encodeFunctionData('claim',[1]))).wait();
   await(await f.arena.connect(f.signers[1]).claim(1,{gasLimit:500000})).wait();
   assert.equal(await f.token.callbackFailure(),signatureId('ReentrancyGuardReentrantCall()').slice(0,10));

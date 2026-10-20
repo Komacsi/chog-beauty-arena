@@ -1,4 +1,4 @@
-# NFT votes and repeated CHOG bets — protocol 6
+# NFT votes and repeated CHOG bets — protocol 7
 
 Implemented in the contract, automatic keeper, wallet helpers, demo API and UI.
 No live contract is deployed; the release guard remains disabled for real funds.
@@ -27,21 +27,29 @@ No live contract is deployed; the release guard remains disabled for real funds.
 - All submissions must open before early settlement: a repeated bet carrying
   zero votes still contributes to the opening counter and its side's pool.
   Invalid/unopened entries are excluded at the existing opening deadline;
-  unopened paid bets are individually refundable without fees.
-- Each winning bet receives its own bet plus its proportional share of the
-  opposing valid pool; then 1% of that gross payout is deducted. Claims are
-  individual and bounded, without loops over a wallet's entire bet history.
+  unopened paid deposits are refunded within the wallet's single claim without fees.
+- All revealed winning-side bets from one wallet in a battle are summed first.
+  One proportional gross payout is calculated from that sum; then 1% is deducted
+  once. Unopened deposits join the same claim without fees. Revealed losing-side
+  bets never join the winning sum. There is one bounded claim per wallet/battle,
+  using running totals rather than looping over the bet history.
   Draws, one-sided pools and emergency cancellations refund without fees.
   NFT-only votes receive no token payout.
-- Old saved demo rounds retain their original commitments, rules, payouts and
-  claims. Only newly created rounds use protocol 6. The main demo state is not
-  reset; integration and browser tests use separate databases.
+- Deposits and refunds retain all 18 decimal places supported by CHOG. Only the
+  website's presentation uses up to three decimals; it never changes the stored
+  amounts, payout inputs or token transfers.
+- Completed saved demo rounds retain their original commitments, rules, payouts
+  and claims. New rounds use protocol 7. Unfinished protocol-6 rounds migrate
+  using recorded deposits and reveals. The main demo state is not reset;
+  integration and browser tests use separate databases.
 
-Validation: 99 tests passed, including 56 NFT votes in two groups, opposite-side
+Validation includes aggregate gross/fee rounding, mixed refunds, duplicate claim
+rejection and protocol-6 migration. The previous 99 regressions are retained.
+Tests cover 56 NFT votes in two groups, opposite-side
 groups, transfer replay prevention, atomic batch rollback, token ID zero, repeat
-paid bets, immutable first paid vote, per-bet claims and fees, emergency refunds,
+paid bets, immutable first paid vote, aggregate wallet claims and fees, emergency refunds,
 actual timelock automatic opening and HTTP integration. A read-only Monad fork
 at block 114860268 also passed with the actual CHOG/NFT contracts: NFT votes plus
-repeated paid bets resolve 3–2; winners receive 10,000 gross / 9,900 net each;
-an unopened 5,000 CHOG bet is refunded separately; treasury gets 200; bank is zero.
+repeated paid bets resolve 3–2; winning wallets receive 18,750 gross / 18,562.5 net and 6,250 gross / 6,187.5 net;
+an unopened 5,000 CHOG bet is refunded separately; treasury gets 250; bank is zero.
 All transactions were local. This is not an independent contract audit.

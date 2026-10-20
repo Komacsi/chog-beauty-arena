@@ -28,6 +28,7 @@ if(!state.matchmakingVersion){for(const r of state.rounds)if(!r.settled)Object.a
 if(!state.losses){state.losses={};for(const r of state.rounds)if(r.settled && !r.cancelled && [0,1].includes(r.winner)){const loser=r.winner===0?r.nftB:r.nftA;state.losses[loser]=(state.losses[loser] || 0)+1;}save();}
 if(!state.draws){state.draws=drawTotals(state.rounds);save();}
 if(demo.migrateMinimumStake(state))save();
+if(demo.migrateAggregatePayouts(state))save();
 const artifact=JSON.parse(await readFile(resolve(root,'artifacts/BeautyArena.json'),'utf8'));
 const live=Boolean(arenaAddress);
 const demoFastRounds=!live && process.env.DEMO_FAST_ROUNDS!=='0';
@@ -43,14 +44,14 @@ if(live){
   await validateGovernance(provider,governanceAddress);
 }
 const port=Number(process.env.PORT || 3000);
-function publicRound(r){if(!r)return null;const {entries,holderEntries,betCounts,usedNfts,...rest}=r;return rest;}
+function publicRound(r){if(!r)return null;const {entries,holderEntries,betCounts,usedNfts,walletBanks,...rest}=r;return rest;}
 const readLive=createLiveCache(async()=>{
   const [countRound,activeRevealer,governanceAddress,cutoff]=await Promise.all([arena.currentRoundId(),arena.revealer(),arena.owner(),arena.interruptedThroughRound()]);
   const current=Number(countRound),interruptedThroughRound=Number(cutoff);
   const history=[],rounds=[],challenges=[];const points={},losses={};
   for(let id=1;id<=current;id++) {
     const r=await arena.getRound(id);
-    const item={id,nftA:Number(r.nftA),nftB:Number(r.nftB),endsAt:Number(r.endsAt)*1000,unlockAt:Number(r.unlockAt)*1000,revealEndsAt:Number(r.revealEndsAt)*1000,beaconRound:Number(r.beaconRound),committedCount:Number(r.committedCount),revealedCount:Number(r.revealedCount),totalCommitted:r.totalCommitted.toString(),protocolVersion:6,interrupted:!r.settled && id<=interruptedThroughRound,votesA:Number(r.votesA),votesB:Number(r.votesB),poolA:r.poolA.toString(),poolB:r.poolB.toString(),settled:r.settled,winner:Number(r.winner),refund:r.refund,cancelled:r.cancelled};
+    const item={id,nftA:Number(r.nftA),nftB:Number(r.nftB),endsAt:Number(r.endsAt)*1000,unlockAt:Number(r.unlockAt)*1000,revealEndsAt:Number(r.revealEndsAt)*1000,beaconRound:Number(r.beaconRound),committedCount:Number(r.committedCount),revealedCount:Number(r.revealedCount),totalCommitted:r.totalCommitted.toString(),protocolVersion:7,interrupted:!r.settled && id<=interruptedThroughRound,votesA:Number(r.votesA),votesB:Number(r.votesB),poolA:r.poolA.toString(),poolB:r.poolB.toString(),settled:r.settled,winner:Number(r.winner),refund:r.refund,cancelled:r.cancelled};
     if(item.settled){history.push(item);if(!item.cancelled && item.winner!==2){const token=item.winner===0?item.nftA:item.nftB,loser=item.winner===0?item.nftB:item.nftA;points[token]=(points[token] || 0)+1;losses[loser]=(losses[loser] || 0)+1;}}
     if(!item.settled)rounds.push(item);
   }
