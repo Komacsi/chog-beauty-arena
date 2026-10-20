@@ -1,6 +1,8 @@
 # Keeper governance and recovery
 
-Templates only: no production service, real Safe, key or arena has been created.
+Service templates only: no production keeper service, key or arena has been configured.
+The user-created Safe and funded keeper have been verified read-only; see
+security/launch-wallets.json and the public addresses in .env.example.
 The live release guard remains enabled. Keep demo on its existing state directory
 and port; deploy production as a separate instance.
 
@@ -12,7 +14,8 @@ hashes are pinned in the contract and checked again for privileged calls.
 Older Safe versions or a lookalike contract are rejected. Configure the public
 address in ARENA_GOVERNANCE_ADDRESS before a future deployment. A 2-of-3 Safe
 should use independent signing devices and owners; the keeper must not hold
-the owner credentials. The user has not yet selected these owners.
+the owner credentials. The selected owners are recorded in security/launch-wallets.json;
+all three addresses matched onchain and the threshold was two at the recorded block.
 
 Operate the Safe from its own trusted interface or compatible wallet; it sends
 the governance transaction directly to the arena on Monad chain 143. This
