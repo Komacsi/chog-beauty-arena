@@ -12,6 +12,7 @@ import {drawTotals} from './lib/leaderboard.mjs';
 import {RELEASE_STATUS,assertLiveReleaseAllowed} from './lib/release.mjs';
 import {validateGovernance} from './lib/governance.mjs';
 import {createLiveCache} from './lib/live-cache.mjs';
+import {createNftCatalog,validTokenId} from './lib/nft-catalog.mjs';
 const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
 assertLiveReleaseAllowed(arenaAddress);
 const root=import.meta.dirname;
@@ -35,6 +36,12 @@ const demoFastRounds=!live && process.env.DEMO_FAST_ROUNDS!=='0';
 const rpcConnection=new FetchRequest(RPC_URL);rpcConnection.timeout=15000;
 const provider=live?new JsonRpcProvider(rpcConnection,CHAIN_ID,{batchMaxCount:1}):null;
 const arena=live?new Contract(arenaAddress,artifact.abi,provider):null;
+let catalogProvider;
+const nftCatalog=createNftCatalog({seedNfts:nfts,cacheDir:resolve(stateDir,'nft-cache'),readTokenUri:async tokenId=>{
+  if(!catalogProvider){const connection=new FetchRequest(RPC_URL);connection.timeout=15000;catalogProvider=new JsonRpcProvider(connection,CHAIN_ID,{batchMaxCount:1});}
+  if(Number((await catalogProvider.getNetwork()).chainId)!==CHAIN_ID)throw Error('Wrong NFT network');
+  return new Contract(COLLECTION,['function tokenURI(uint256) view returns(string)'],catalogProvider).tokenURI(tokenId);
+}});
 const treasury='0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D';
 const revealerAddress=live?await arena.revealer():process.env.ARENA_REVEALER_ADDRESS || '';
 const governanceAddress=live?await arena.owner():process.env.ARENA_GOVERNANCE_ADDRESS || '';
@@ -85,11 +92,21 @@ function tick(){
   })().finally(()=>{tickInFlight=null;});return tickInFlight;
 }
 const keeperTimer=live?null:setInterval(()=>tick().catch(()=>{}),5000);
-const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.png':'image/png','.jpg':'image/jpeg','.json':'application/json'};
+const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml','.json':'application/json'};
 const json=(res,status,data)=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(data));};
 const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connectionsCheckingInterval:1000,maxHeaderSize:16384},async(req,res)=>{
   try{
     const url=new URL(req.url,'http://localhost');
+    const nftRoute=url.pathname.match(/^\/api\/nfts\/(\d+)(\/image)?$/);
+    if(nftRoute && req.method==='GET'){
+      const tokenId=Number(nftRoute[1]);if(!validTokenId(tokenId))return json(res,400,{error:'Invalid Chog NFT'});
+      try{
+        if(!nftRoute[2])return json(res,200,await nftCatalog.getMetadata(tokenId));
+        const asset=await nftCatalog.getImage(tokenId);
+        if(asset.redirect){res.writeHead(302,{location:asset.redirect});res.end();return;}
+        res.writeHead(200,{'content-type':asset.type,'content-length':asset.bytes.length,'cache-control':'public, max-age=86400','x-content-type-options':'nosniff'});res.end(asset.bytes);return;
+      }catch{return json(res,503,{error:'NFT details temporarily unavailable. Please retry.'});}
+    }
     if(url.pathname.startsWith('/api/')) {
       if(req.method==='POST' && req.headers.origin && new URL(req.headers.origin).host!==req.headers.host)return json(res,403,{error:'Invalid origin'});
       let id=req.headers.cookie?.match(/(?:^|; )arena_demo=([a-f0-9-]{36})(?:;|$)/)?.[1];
@@ -151,5 +168,5 @@ const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connec
 });
 server.maxHeadersCount=100;server.maxRequestsPerSocket=100;
 server.listen(port,process.env.HOST || '127.0.0.1',()=>console.log(`Chog: Beauty Arena — http://localhost:${server.address().port} (${live?'LIVE':'DEMO'})`));
-function shutdown(){if(keeperTimer)clearInterval(keeperTimer);server.close(()=>{db.close();process.exit(0);});}
+function shutdown(){if(keeperTimer)clearInterval(keeperTimer);catalogProvider?.destroy();provider?.destroy();server.close(()=>{db.close();process.exit(0);});}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);

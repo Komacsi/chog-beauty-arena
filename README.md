@@ -8,9 +8,9 @@ Any positive bet must be at least **5,000 CHOG**, enforced onchain and in demo/A
 
 Use `npm run start:demo` to run the simulation independently of any future live address in `.env`. Preserve its `ARENA_STATE_DIR` when restarting; use a separate directory and port for a future live instance.
 
-Connect a wallet and open **Profile** to see owned NFTs and create a battle request. The prototype displays only the 10 imported NFTs; it does not fetch all 1969 images. Live ownership is read from the NFT contract, and the arena enforces ownership again in the transaction. Demo mode provides Holder A, Holder B and Non-holder personas with simulated ownership.
+Connect a wallet and open **Profile** to see owned NFTs and create a battle request. Live ownership uses Chog Genesis tokensOfOwner and balanceOf at one block, covering the complete collection independently of the ten bundled sample images. The arena enforces ownership again in the transaction. Demo mode provides Holder A, Holder B and Non-holder personas with simulated ownership.
 
-The interface uses collection names (for example, CHOG #1760) rather than internal contract token IDs. Token-ID search is available only in the leaderboard. For votes without a bet, select one NFT or a group using thumbnail checkboxes. Every selected NFT adds one vote; its ID is marked used for that battle, so a transfer cannot vote again. NFTs stay in wallets and no NFT approvals are requested. Larger selections use batches of up to 50 NFTs per transaction; there is no five-NFT or per-wallet cap. Wallets whose NFTs are outside the ten-item prototype sample can participate with a bet until their NFTs are imported.
+The interface uses collection names (for example, CHOG #1760) rather than internal contract token IDs. Token-ID search is available only in the leaderboard. For votes without a bet, select one NFT or a group using thumbnail checkboxes. Every selected NFT adds one vote; its ID is marked used for that battle, so a transfer cannot vote again. NFTs stay in wallets and no NFT approvals are requested. Larger selections use batches of up to 50 NFTs per transaction; there is no five-NFT or per-wallet cap. NFTs outside the sample are fully eligible for requests and NFT votes. Their metadata loads separately; image requests use browser lazy loading and a persistent on-demand server cache. Connecting a wallet never waits for image downloads.
 
 - `createChallenge(tokenId)` creates an open request with the caller's NFT. No round, voting or betting starts yet.
 - A different holder calls `acceptChallenge(requestId, ownTokenId)` to start the round. Both NFTs must still belong to the respective participants. The 24-hour deadline is calculated from the acceptance block, irrespective of how long the request waited.
@@ -56,7 +56,7 @@ Example: two different wallets have winning totals of 10,000 and 30,000, with a 
 
 ## Run locally
 
-Requires Node.js 24+. Uses built-in SQLite. The ten sample NFT images are already included.
+Requires Node.js 24+. Uses built-in SQLite. Ten sample images are bundled; other metadata and images are fetched only as needed from the collection’s onchain tokenURI through fixed IPFS gateways. The cache lives under ARENA_STATE_DIR/nft-cache. Gateway failures show placeholders and a Retry control without discarding the ownership list.
 
 ```sh
 npm ci --ignore-scripts

@@ -6,6 +6,7 @@ node_modules/
 dist/
 data/*.sqlite*
 data/import-errors.json
+data/nft-cache/
 *.log
 artifacts/
 public/vendor/

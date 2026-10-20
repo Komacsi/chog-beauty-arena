@@ -44,6 +44,10 @@ test('HTTP flow: empty lobby, profile ownership, cancel, accept, concurrent matc
     await request('holder-votes',{...nftPayload,tokenIds:[a[2]]});await request('commit',{...payload,roundId:1});
     s=await request('state?round=1');assert.equal(s.round.committedCount,6);assert.equal(s.betCount,1);assert.equal(s.usedNfts.length,3);assert.equal(s.round.votesA,0);assert.equal(s.round.holderEntries,undefined);
     await request('commit',{...payload,roundId:2,amount:'0'},400);assert.equal((await request('state?round=999')).round,null);
+    const details=await request('nfts/'+a[0]);assert.equal(details.tokenId,a[0]);assert.ok(details.name.startsWith('CHOG #'));assert.ok(details.image.startsWith('/nfts/'));
+    assert.equal((await fetch(base+'/api/nfts/'+a[0]+'/image',{redirect:'manual'})).status,302);
+    await request('nfts/0',undefined,400);await request('nfts/1970',undefined,400);
+    assert.equal((await fetch(base+'/nft-placeholder.svg')).headers.get('content-type'),'image/svg+xml');
     assert.equal((await fetch(base+'/profile')).status,200);await request('pair',undefined,404);
   }finally{child.kill();await new Promise(resolve=>child.exitCode!==null?resolve():child.once('exit',resolve));await rm(dir,{recursive:true,force:true});}
 });
