@@ -3,10 +3,11 @@ import {sealBallot} from '../lib/timelock.mjs';
 import {phase,DEMO_ARENA} from '../lib/commitments.mjs';
 import {leaderboard} from '../lib/leaderboard.mjs';
 import {validateGovernance} from '../lib/governance.mjs';
-import {submitLiveBet} from '../lib/live-bet.mjs';
+import {submitLiveBet,submitLiveHolderVotes} from '../lib/live-bet.mjs';
+import {holderTokensHash,normalizeHolderTokens,MAX_HOLDER_BATCH} from '../lib/holder-ballots.mjs';
 let config,state,signer,address='',holder=false,busy=false,owned=[],displayedPhase=null;
 let walletEpoch=0;
-const nftSelections=new Map();
+const nftSelections=new Map(),holderSelections=new Map();
 const $=s=>document.querySelector(s);
 const esc=v=>String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=v=>Number(formatUnits(BigInt(v || 0),18)).toLocaleString('en-US',{maximumFractionDigits:3});
@@ -16,7 +17,7 @@ const battleLength=()=>config.mode==='demo' && config.demoFastRounds?'2-minute':
 const contract=()=>new Contract(config.arenaAddress,config.abi,signer);
 async function api(path,body){const r=await fetch('/api/'+path,body===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error);return data;}
 function toast(message){$('#toast').textContent=message;$('#toast').style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').style.display='none',7000);}
-async function run(fn){if(busy)return;busy=true;try{await fn();await refresh();}catch(e){toast(e.shortMessage || e.message);}finally{busy=false;}}
+async function run(fn){if(busy)return;busy=true;try{await fn();}catch(e){toast(e.shortMessage || e.message);}finally{try{await refresh();}catch(e){toast(e.shortMessage || e.message);}busy=false;}}
 async function connect(){
   if(!window.ethereum)throw Error('Connect an EVM wallet. Demo mode does not require one.');
   const wallet=new BrowserProvider(window.ethereum);await wallet.send('eth_requestAccounts',[]);await wallet.send('wallet_switchEthereumChain',[{chainId:'0x8f'}]);signer=await wallet.getSigner();address=await signer.getAddress();
@@ -32,8 +33,8 @@ async function refresh(){
     holder=(await collection.balanceOf(address))>0n;
     const ownership=await Promise.allSettled(config.nfts.map(async n=>({tokenId:n.tokenId,owner:await collection.ownerOf(n.tokenId)})));
     owned=ownership.filter(x=>x.status==='fulfilled' && x.value.owner.toLowerCase()===address.toLowerCase()).map(x=>x.value.tokenId);
-    if(state.round){const e=await contract().entries(state.round.id,address);state.entry=e.committed?{committed:true,revealed:e.revealed,amount:e.amount.toString()}:null;}
-    state.claims=[];for(const r of state.history){const p=await contract().payoutBreakdown(r.id,address);if(p.amount>0n)state.claims.push({id:r.id,gross:p.gross.toString(),fee:p.fee.toString(),amount:p.amount.toString()});}
+    if(state.round){state.betCount=Number(await contract().betCount(state.round.id,address));const usage=await Promise.all(owned.map(id=>contract().unstakedVoteUsed(state.round.id,id)));state.usedNfts=owned.filter((_,i)=>usage[i]);}
+    state.claims=[];for(const r of state.history){const count=Number(await contract().betCount(r.id,address));for(let betNonce=0;betNonce<count;betNonce++){const p=await contract().payoutBetBreakdown(r.id,address,betNonce);if(p.amount>0n)state.claims.push({id:r.id,betNonce,gross:p.gross.toString(),fee:p.fee.toString(),amount:p.amount.toString()});}}
   }
   render();
 }
@@ -103,11 +104,11 @@ function bindRequests(){
   for(const b of document.querySelectorAll('[data-accept]'))b.onclick=()=>run(async()=>{const id=Number(b.dataset.accept),tokenId=Number($('#accept-nft-'+id).value);if(config.mode==='demo')await api('challenges/accept',{id,tokenId});else await(await contract().acceptChallenge(id,tokenId)).wait();toast(`Battle started. Voting and betting are now open for ${battleWindow()}.`);});
 }
 function outcome(r){return r.cancelled?'Cancelled':r.winner===2?'Draw':(nft(r.winner===0?r.nftA:r.nftB)?.name || 'NFT')+' won!';}
-function matches(list){return list.length?`<div class="match-list">${list.map(r=>`<a class="match-row" href="/?round=${r.id}"><div class="match-art">${[r.nftA,r.nftB].map(id=>`<img src="${esc(nft(id)?.image || '/nfts/'+id+'.webp')}" alt="${esc(nft(id)?.name || 'Chog')}">`).join('')}</div><div><strong>${esc(nft(r.nftA)?.name || 'Chog')} vs ${esc(nft(r.nftB)?.name || 'Chog')}</strong><p>Round #${r.id} · ${r.settled?esc(outcome(r)):phase(r)==='interrupted'?'Interrupted':phase(r)==='commit'?'Voting & betting open':'Automatic opening'} · ${r.committedCount || 0} participants</p></div><span>View battle</span></a>`).join('')}</div>`:'<div class="empty">No active battles. Accept a request to start one.</div>';}
+function matches(list){return list.length?`<div class="match-list">${list.map(r=>`<a class="match-row" href="/?round=${r.id}"><div class="match-art">${[r.nftA,r.nftB].map(id=>`<img src="${esc(nft(id)?.image || '/nfts/'+id+'.webp')}" alt="${esc(nft(id)?.name || 'Chog')}">`).join('')}</div><div><strong>${esc(nft(r.nftA)?.name || 'Chog')} vs ${esc(nft(r.nftB)?.name || 'Chog')}</strong><p>Round #${r.id} · ${r.settled?esc(outcome(r)):phase(r)==='interrupted'?'Interrupted':phase(r)==='commit'?'Voting & betting open':'Automatic opening'} · ${r.committedCount || 0} ${r.protocolVersion>=6?'sealed NFT votes & bets':'participants'}</p></div><span>View battle</span></a>`).join('')}</div>`:'<div class="empty">No active battles. Accept a request to start one.</div>';}
 function rewards(){
   if(!state.claims?.length)return;
-  $('#content').insertAdjacentHTML('beforeend',`<section class="history"><h3>Your rewards</h3>${state.claims.map(c=>`<div class="history-item"><span>Round #${c.id} · ${money(c.gross)} − ${money(c.fee)} fee = ${money(c.amount)} CHOG</span><button data-claim="${c.id}">Claim reward</button></div>`).join('')}</section>`);
-  for(const b of document.querySelectorAll('[data-claim]'))b.onclick=()=>run(async()=>{const id=Number(b.dataset.claim);if(config.mode==='demo')await api('claim',{id});else await(await contract().claim(id)).wait();toast('Reward claimed');});
+  $('#content').insertAdjacentHTML('beforeend',`<section class="history"><h3>Your rewards</h3>${state.claims.map(c=>`<div class="history-item"><span>Round #${c.id} · Bet #${(c.betNonce ?? 0)+1} · ${money(c.gross)} − ${money(c.fee)} fee = ${money(c.amount)} CHOG</span><button data-claim="${c.id}" data-bet-nonce="${c.betNonce ?? 0}">Claim reward</button></div>`).join('')}</section>`);
+  for(const b of document.querySelectorAll('[data-claim]'))b.onclick=()=>run(async()=>{const id=Number(b.dataset.claim),betNonce=Number(b.dataset.betNonce);if(config.mode==='demo')await api('claim',{id,betNonce});else await(await contract().claimBet(id,betNonce)).wait();toast('Reward claimed');});
 }
 function renderLobby(){
   $('#content').innerHTML=`<section class="hero"><div><div class="eyebrow">HOLDER VS HOLDER</div><h1>Your Chog.<br><em>Your challenge.</em></h1><p class="intro">Create a request with your NFT. Another holder brings theirs.<br>Once accepted, the community has ${battleWindow()} to vote and place bets.</p></div><a class="button-link" href="/profile">Create a battle</a></section><div class="utility-row"><span>One NFT · one open request or active battle at a time</span>${demoWallet()}</div><section class="lobby-section"><div class="section-title"><h2>Open battle requests</h2><span>${state.challenges.length} waiting</span></div>${requests(state.challenges)}</section><section class="lobby-section"><div class="section-title"><h2>Active battles</h2><span>${state.rounds.length} ongoing</span></div>${matches(state.rounds)}</section>${state.history.length?`<section class="lobby-section"><h2>Recent contests</h2>${matches(state.history.slice(-8).reverse())}</section>`:''}`;
@@ -138,10 +139,10 @@ function resultBanner(r){
 }
 function card(token,side){
   if(!token)return '<div class="empty">NFT not loaded.</div>';
-  const r=state.round,canStake=config.mode==='demo'?state.account.holder:!address || holder;
-  const closed=phase(r)!=='commit' || Boolean(state.entry);
+  const r=state.round,canStake=owned.some(id=>!(state.usedNfts || []).includes(id));
+  const closed=phase(r)!=='commit';
   const tier=token.attributes.find(a=>a.trait_type==='Tier')?.value || 'Genesis';
-  return `<article class="nft-card"><div class="art-wrap"><img src="${esc(token.image)}" alt="${esc(token.name)}"><span class="art-tag">CONTENDER ${side?'B':'A'}</span></div><div class="card-info"><div class="name-row"><div><h2>${esc(token.name)}</h2><div class="collection-label">Chog Genesis</div></div><span class="trait">${esc(tier)}</span></div><div class="stats"><div><small>VOTES</small><strong>${r.settled?(side?r.votesB:r.votesA):'Sealed'}</strong></div><div><small>SIDE POOL</small><strong>${r.settled?money(side?r.poolB:r.poolA)+' CHOG':'Sealed'}</strong></div></div>${phase(r)==='commit'?`<button class="vote-btn" data-side="${side}" ${closed || !canStake?'disabled':''}>${state.entry?'Choice encrypted':'Participate without a bet'}</button>`:''}</div></article>`;
+  return `<article class="nft-card"><div class="art-wrap"><img src="${esc(token.image)}" alt="${esc(token.name)}"><span class="art-tag">CONTENDER ${side?'B':'A'}</span></div><div class="card-info"><div class="name-row"><div><h2>${esc(token.name)}</h2><div class="collection-label">Chog Genesis</div></div><span class="trait">${esc(tier)}</span></div><div class="stats"><div><small>VOTES</small><strong>${r.settled?(side?r.votesB:r.votesA):'Sealed'}</strong></div><div><small>SIDE POOL</small><strong>${r.settled?money(side?r.poolB:r.poolA)+' CHOG':'Sealed'}</strong></div></div>${phase(r)==='commit'?`<button class="vote-btn" data-side="${side}" ${closed || !canStake?'disabled':''}>Choose NFTs & vote</button>`:''}</div></article>`;
 }
 function board(){
   const q=$('#search').value.toLowerCase(),rows=leaderboard(config.nfts,state.points,state.losses,state.draws).filter(n=>n.name.toLowerCase().includes(q) || String(n.tokenId).includes(q));
@@ -171,9 +172,9 @@ function render(){
   content.innerHTML=r && p!=='commit'?resultBanner(r):`<section class="hero"><div><div class="eyebrow">THE SEALED CHOG SHOWDOWN</div><h1>Your choice. <em>Under wraps.</em></h1><p class="intro">Pick your Chog. Your choice is encrypted in your browser.<br>After betting closes, choices open automatically.</p></div>${r && !r.settled?`<div class="timer"><small>${p==='commit'?'BETTING CLOSES IN':'AUTOMATIC OPENING'}</small><strong id="countdown">…</strong></div>`:''}</section>`;
   if(!r)content.insertAdjacentHTML('beforeend','<div class="empty">Battle not found. <a href="/">Browse battle requests</a></div>');
   else{
-    content.insertAdjacentHTML('beforeend',`<div class="round-bar"><span><span class="live-dot"></span>ROUND #${r.id} · ${r.settled?'COMPLETED':p==='commit'?'SEALED BETTING':p==='interrupted'?'INTERRUPTED':p==='legacy'?'LEGACY ROUND':p==='settlement'?'FINALIZING':'AUTOMATIC OPENING'}</span><span>${r.committedCount ?? 0} participants · ${money(r.totalCommitted)} CHOG deposited</span></div><section class="battle">${card(nft(r.nftA),0)}<div class="versus">VS</div>${card(nft(r.nftB),1)}</section>${p==='commit'?`<p class="vote-note">One wallet = one vote. During betting, the chosen side is encrypted; addresses and bet amounts remain public.</p><section class="bet-panel"><div><h3>Seal your choice.</h3><p>Holders choose participation with or without a bet. Non-holders must place a bet in CHOG. Minimum bet: 5,000 CHOG. Only bettors receive payouts.<br>Your bet + share of the opposing bank is calculated first; then 1% is deducted. No fees on refunds.<br>No second reveal action is required from you.</p></div><div class="bet-controls"><div class="field"><label for="side">YOUR CONTENDER</label><select id="side"><option value="0">${esc(nft(r.nftA)?.name || 'A')}</option><option value="1">${esc(nft(r.nftB)?.name || 'B')}</option></select></div><div class="field"><label for="amount">BET · CHOG · MIN. 5,000</label><input id="amount" type="number" min="5000" step="any" value="5000" placeholder="Minimum 5,000 CHOG" inputmode="decimal"></div><button id="stake" ${state.entry || p!=='commit'?'disabled':''}>Place a bet</button></div></section>`:''}<div class="utility-row"><span>${config.mode==='demo'?'Demo balance: '+money(state.account.balance)+' CHOG':address?(holder?'Holder · bet optional':'Non-holder · bet required'):'Connect wallet to participate'}</span>${config.mode==='demo'?demoWallet():''}</div>`);
+    content.insertAdjacentHTML('beforeend',`<div class="round-bar"><span><span class="live-dot"></span>ROUND #${r.id} · ${r.settled?'COMPLETED':p==='commit'?'SEALED BETTING':p==='interrupted'?'INTERRUPTED':p==='legacy'?'LEGACY ROUND':p==='settlement'?'FINALIZING':'AUTOMATIC OPENING'}</span><span>${r.committedCount ?? 0} sealed NFT votes & bets · ${money(r.totalCommitted)} CHOG deposited</span></div><section class="battle">${card(nft(r.nftA),0)}<div class="versus">VS</div>${card(nft(r.nftB),1)}</section>${p==='commit'?`${participationPanels(r)}`:''}<div class="utility-row"><span>${config.mode==='demo'?'Demo balance: '+money(state.account.balance)+' CHOG':address?(holder?'Holder · bet optional':'Non-holder · bet required'):'Connect wallet to participate'}</span>${config.mode==='demo'?demoWallet():''}</div>`);
     if(p==='interrupted' && config.mode==='live'){content.insertAdjacentHTML('beforeend','<div class="utility-row"><button id="finalize-refunds">Finalize refunds</button></div>');$('#finalize-refunds').onclick=()=>run(async()=>{if(!signer)await connect();await(await contract().settle(r.id)).wait();toast('Refunds are available to claim');});}
-    for(const b of document.querySelectorAll('[data-side]'))b.onclick=()=>run(()=>cast(Number(b.dataset.side),'0'));
+    bindHolderVotes(); for(const b of document.querySelectorAll('[data-side]'))b.onclick=()=>{if($('#holder-side'))$('#holder-side').value=b.dataset.side;$('#holder-votes')?.scrollIntoView({behavior:'smooth',block:'center'});};
     if($('#stake'))$('#stake').onclick=()=>run(()=>cast(Number($('#side').value),$('#amount').value));
     if(config.mode==='demo')bindDemoWallet();
   }
@@ -181,34 +182,76 @@ function render(){
     content.insertAdjacentHTML('beforeend','<div class="utility-row"><button id="fees">Withdraw developer fees</button></div>');$('#fees').onclick=()=>run(async()=>{await(await contract().withdrawFees()).wait();});
   }
   if(p==='commit')content.insertAdjacentHTML('beforeend','<section class="info-grid"><div><strong>01 · Encrypted locally</strong><p>Your choice is sealed for a future drand beacon. Our server does not hold the decryption key.</p></div><div><strong>02 · Automatic opening</strong><p>After betting closes, the keeper decrypts and submits matching reveals. No second wallet action from you. Unopened choices are excluded and their bets refunded after the opening deadline.</p></div><div><strong>03 · Claim your payout</strong><p>Gross payout first, then a 1% fee. Draws, one-sided pools and cancelled rounds return bets in full.</p></div></section>');
-  if(state.claims?.length){content.insertAdjacentHTML('beforeend',`<section class="history"><h3>Your rewards</h3>${state.claims.map(c=>`<div class="history-item"><span>Round #${c.id} · ${money(c.gross)} − ${money(c.fee)} fee = ${money(c.amount)} CHOG</span><button data-claim="${c.id}">Claim reward</button></div>`).join('')}</section>`);for(const b of document.querySelectorAll('[data-claim]'))b.onclick=()=>run(async()=>{const id=Number(b.dataset.claim);if(config.mode==='demo')await api('claim',{id});else await(await contract().claim(id)).wait();toast('Reward claimed');});}
+  if(state.claims?.length){content.insertAdjacentHTML('beforeend',`<section class="history"><h3>Your rewards</h3>${state.claims.map(c=>`<div class="history-item"><span>Round #${c.id} · Bet #${(c.betNonce ?? 0)+1} · ${money(c.gross)} − ${money(c.fee)} fee = ${money(c.amount)} CHOG</span><button data-claim="${c.id}" data-bet-nonce="${c.betNonce ?? 0}">Claim reward</button></div>`).join('')}</section>`);for(const b of document.querySelectorAll('[data-claim]'))b.onclick=()=>run(async()=>{const id=Number(b.dataset.claim),betNonce=Number(b.dataset.betNonce);if(config.mode==='demo')await api('claim',{id,betNonce});else await(await contract().claimBet(id,betNonce)).wait();toast('Reward claimed');});}
   if(state.history.length)content.insertAdjacentHTML('beforeend',`<section class="history"><h3>Recent contests</h3>${state.history.slice().reverse().slice(0,8).map(x=>`<div class="history-item"><span>Round #${x.id} · ${esc(nft(x.nftA)?.name || 'Chog')} vs ${esc(nft(x.nftB)?.name || 'Chog')}</span><strong>${esc(outcome(x))}</strong></div>`).join('')}</section>`);
   for(const [id,value]of Object.entries(values)){const e=document.getElementById(id);if(e && id!=='role')e.value=value;}clock();
 }
-async function cast(side,amountText){
-  const r=state.round;if(phase(r)!=='commit')throw Error('Betting is closed');const amount=parseUnits(amountText || '0',18);if(amount<0n)throw Error('Bet amount cannot be negative');
-  if(amount>0n && amount<BigInt(config.minStake))throw Error('Minimum bet is 5,000 CHOG');
-  if(config.mode==='live' && !signer)await connect();
-  const account=config.mode==='demo'?state.account.address:address;
-  const hasNFT=config.mode==='demo'?state.account.holder:holder;
-  const holderId=amount===0n?Number(owned[0]):0;
-  if(amount===0n && !hasNFT)throw Error('Non-holders must place a bet in CHOG to participate');
-  if(config.mode==='live' && amount===0n && (!Number.isSafeInteger(holderId) || holderId<1))throw Error('No owned Chog is available in the imported prototype collection. Please place a bet or use a wallet with an imported Chog.');
-  toast('Encrypting your choice locally…');
-  if(config.mode==='live'){
-    const capturedSigner=signer,capturedEpoch=walletEpoch;
-    const arena=new Contract(config.arenaAddress,config.abi,capturedSigner);
-    const token=new Contract(config.token,['function allowance(address,address) view returns(uint256)','function approve(address,uint256) returns(bool)'],capturedSigner);
-    const assertWallet=async()=>{
-      const [accounts,chain]=await Promise.all([capturedSigner.provider.send('eth_accounts',[]),capturedSigner.provider.send('eth_chainId',[])]);
-      if(walletEpoch!==capturedEpoch || signer!==capturedSigner || !sameAddress(accounts[0],account) || BigInt(chain)!==BigInt(config.chainId))throw Error('Wallet or network changed. Please retry your bet.');
-    };
-    await submitLiveBet({arena,token,account,chainId:config.chainId,roundId:r.id,side,amount,holderId,assertWallet,notify:toast});
-    toast('Encrypted choice recorded. The keeper handles opening.');return;
-  }
-  const sealed=await sealBallot({arena:config.arenaAddress || DEMO_ARENA,chainId:config.chainId,roundId:r.id,account,side,tokenId:side===0?r.nftA:r.nftB,amount:amount.toString()},r.beaconRound);
-  if(config.mode==='demo'){await api('commit',{...sealed,amount:amountText,roundId:r.id});toast('Choice encrypted. It will open automatically after closing.');return;}
+function capturedWallet(account){
+  const capturedSigner=signer,capturedEpoch=walletEpoch;
+  return {arena:new Contract(config.arenaAddress,config.abi,capturedSigner),assertWallet:async()=>{
+    const [accounts,chain]=await Promise.all([capturedSigner.provider.send('eth_accounts',[]),capturedSigner.provider.send('eth_chainId',[])]);
+    if(walletEpoch!==capturedEpoch || signer!==capturedSigner || !sameAddress(accounts[0],account) || BigInt(chain)!==BigInt(config.chainId))throw Error('Wallet or network changed. Please retry.');
+  }};
 }
+function holderSelection(){
+  const key=selectionKey('holder-votes:'+state.round.id),used=new Set(state.usedNfts || []);
+  const ids=(holderSelections.get(key) || []).filter(id=>owned.includes(id) && !used.has(id));
+  holderSelections.set(key,ids);return {key,ids};
+}
+function contenderOptions(r){return [r.nftA,r.nftB].map((id,side)=>`<option value="${side}">${esc(nft(id)?.name || 'CHOG')}</option>`).join('');}
+function participationPanels(r){
+  const {ids}=holderSelection(),used=new Set(state.usedNfts || []),available=owned.filter(id=>!used.has(id));
+  return `<p class="vote-note">Each NFT gives one vote without a CHOG bet. Your first CHOG bet gives one additional vote. Choices stay encrypted until betting closes.</p>
+  <section class="holder-panel" id="holder-votes"><h3>Vote with your NFTs</h3><p>Select one NFT or a group, then choose a contender. You can submit other groups for either contender. Each NFT can vote once per battle, even after a transfer. Your NFTs stay in your wallet.</p>
+  ${owned.length?`<div class="holder-toolbar"><span>${available.length} available · ${owned.length-available.length} already used</span><div><button type="button" id="select-all-nfts" ${!available.length?'disabled':''}>Select all available</button><button type="button" id="clear-nfts">Clear</button></div></div>
+  <div class="holder-grid">${owned.map(id=>{const n=nft(id),disabled=used.has(id);return `<label class="holder-choice ${disabled?'is-used':''}"><input type="checkbox" data-holder-nft="${id}" ${ids.includes(id)?'checked':''} ${disabled?'disabled':''}><img src="${esc(n?.image)}" alt="" width="52" height="52"><span><strong>${esc(n?.name || 'CHOG')}</strong><small>${disabled?'Already voted':'1 vote'}</small></span></label>`;}).join('')}</div>
+  <div class="bet-controls"><div class="field"><label for="holder-side">CONTENDER FOR SELECTED NFTs</label><select id="holder-side">${contenderOptions(r)}</select></div><button type="button" id="submit-nft-votes" ${!ids.length?'disabled':''}>Submit ${ids.length} NFT vote${ids.length===1?'':'s'}</button></div>`:'<p class="holder-empty">Connect a wallet with an imported Chog NFT to vote without a CHOG bet. You can also participate by placing a bet below.</p>'}</section>
+  <section class="bet-panel"><div><h3>Place a CHOG bet</h3><p>You can place bets alongside your NFT votes. Each bet must be at least 5,000 CHOG. Only CHOG bets receive payouts.<br>Your bet + share of the opposing bank is calculated first; then 1% is deducted. No fees on refunds.<br>Choices open automatically. No second action is required.</p></div>
+  <div><div class="bet-controls"><div class="field"><label for="side">YOUR CONTENDER</label><select id="side">${contenderOptions(r)}</select></div><div class="field"><label for="amount">BET · CHOG · MIN. 5,000</label><input id="amount" type="number" min="5000" step="any" value="5000" placeholder="Minimum 5,000 CHOG" inputmode="decimal" aria-describedby="paid-vote-note"></div></div>
+  <p id="paid-vote-note" class="paid-vote-note">Only your first CHOG bet in this battle adds 1 vote. You can place more bets on either contender; they participate in payouts but add no votes.${state.betCount?' You have already used your CHOG vote.':''}</p><button id="stake">Place a bet</button></div></section>`;
+}
+function bindHolderVotes(){
+  if(!$('#holder-votes'))return;
+  const update=ids=>{holderSelections.set(holderSelection().key,ids);render();};
+  for(const input of document.querySelectorAll('[data-holder-nft]'))input.onchange=()=>update([...document.querySelectorAll('[data-holder-nft]:checked')].map(e=>Number(e.dataset.holderNft)));
+  if($('#select-all-nfts'))$('#select-all-nfts').onclick=()=>update(owned.filter(id=>!(state.usedNfts || []).includes(id)));
+  if($('#clear-nfts'))$('#clear-nfts').onclick=()=>update([]);
+  if($('#submit-nft-votes'))$('#submit-nft-votes').onclick=()=>run(()=>castHolder(Number($('#holder-side').value)));
+}
+async function castHolder(side){
+  const r=state.round,{key,ids}=holderSelection();if(phase(r)!=='commit')throw Error('Voting is closed');
+  if(!ids.length)throw Error('Select at least one available NFT');
+  if(config.mode==='live' && !signer)await connect();
+  const account=accountAddress(),wallet=config.mode==='live'?capturedWallet(account):null;
+  toast('Encrypting your NFT votes locally…');
+  // No per-wallet NFT cap. Large collections use bounded transactions.
+  for(let offset=0;offset<ids.length;offset+=MAX_HOLDER_BATCH){
+    const tokenIds=normalizeHolderTokens(ids.slice(offset,offset+MAX_HOLDER_BATCH));
+    if(wallet)await submitLiveHolderVotes({...wallet,account,chainId:config.chainId,roundId:r.id,side,tokenIds,notify:toast});
+    else{
+      const sealed=await sealBallot({arena:DEMO_ARENA,chainId:config.chainId,roundId:r.id,account,side,tokenId:side===0?r.nftA:r.nftB,amount:'0',holderKey:tokenIds[0],holderTokenIdsHash:holderTokensHash(tokenIds)},r.beaconRound);
+      await api('holder-votes',{roundId:r.id,tokenIds,...sealed});
+    }
+    holderSelections.set(key,(holderSelections.get(key) || []).filter(id=>!tokenIds.includes(id)));
+  }
+  toast(ids.length+' NFT vote'+(ids.length===1?'':'s')+' encrypted. Opening is automatic.');
+}
+async function cast(side,amountText){
+  const r=state.round;if(phase(r)!=='commit')throw Error('Betting is closed');const amount=parseUnits(amountText || '0',18);
+  if(amount<BigInt(config.minStake))throw Error('Minimum bet is 5,000 CHOG');
+  if(config.mode==='live' && !signer)await connect();
+  const account=accountAddress();toast('Encrypting your bet locally…');
+  if(config.mode==='live'){
+    const wallet=capturedWallet(account),token=new Contract(config.token,['function allowance(address,address) view returns(uint256)','function approve(address,uint256) returns(bool)'],signer);
+    await submitLiveBet({...wallet,token,account,chainId:config.chainId,roundId:r.id,side,amount,notify:toast});
+  }else{
+    const betNonce=state.betCount || 0;
+    const sealed=await sealBallot({arena:DEMO_ARENA,chainId:config.chainId,roundId:r.id,account,betNonce,side,tokenId:side===0?r.nftA:r.nftB,amount:amount.toString()},r.beaconRound);
+    await api('commit',{...sealed,amount:amountText,roundId:r.id,betNonce});
+  }
+  toast('Bet encrypted. It will open automatically after closing.');
+}
+
 $('#wallet').onclick=()=>config.mode==='demo'?location.assign('/profile'):run(connect);
 window.ethereum?.on?.('accountsChanged',()=>{walletEpoch++;address='';signer=null;holder=false;owned=[];$('#wallet').textContent='Connect wallet';run(refresh);});window.ethereum?.on?.('chainChanged',()=>{walletEpoch++;location.reload();});
 try{config=await api('config');await refresh();setInterval(()=>{if(!busy && !document.querySelector('[data-picker-toggle][aria-expanded="true"]') && !['INPUT','SELECT'].includes(document.activeElement.tagName))refresh().catch(e=>toast(e.message));},10000);setInterval(clock,1000);}catch(e){$('#content').innerHTML='<div class="empty">'+esc(e.message)+'</div>';}

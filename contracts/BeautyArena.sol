@@ -51,7 +51,8 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
     mapping(uint256 => uint256) public tokenChallenge;
     mapping(uint256 => uint256) public tokenRound;
     mapping(uint256 => Round) internal rounds;
-    mapping(uint256 => mapping(address => Entry)) public entries;
+    mapping(uint256 => mapping(address => mapping(uint256 => Entry))) public bets;
+    mapping(uint256 => mapping(address => uint256)) public betCount;
     mapping(uint256 => uint256) public points;
     mapping(uint256 => uint256) public losses;
     mapping(uint256 => uint256) public draws;
@@ -60,16 +61,17 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
     mapping(uint256 => mapping(address => uint256)) public holderVoteCount;
     uint256 public constant MAX_HOLDER_BATCH=50;
     bytes32 private constant HOLDER_VOTE_DOMAIN=keccak256('CHOG_HOLDER_VOTE_V1');
+    bytes32 private constant BET_DOMAIN=keccak256('CHOG_PAID_BET_V1');
     event RoundStarted(uint256 indexed id, uint256 nftA, uint256 nftB, uint256 endsAt, uint256 unlockAt);
     event ChallengeCreated(uint256 indexed id, address indexed creator, uint256 tokenId);
     event ChallengeCancelled(uint256 indexed id);
     event ChallengeAccepted(uint256 indexed id, address indexed opponent, uint256 tokenId, uint256 roundId);
-    event VoteCommitted(uint256 indexed id, address indexed account, bytes32 commitment, uint256 amount, bytes sealedChoice);
-    event VoteRevealed(uint256 indexed id, address indexed account, uint8 side, uint256 amount);
+    event VoteCommitted(uint256 indexed id, address indexed account, uint256 indexed betNonce, bytes32 commitment, uint256 amount, bytes sealedChoice);
+    event VoteRevealed(uint256 indexed id, address indexed account, uint256 indexed betNonce, uint8 side, uint256 amount);
     event HolderVotesCommitted(uint256 indexed id,address indexed account,uint256 indexed holderKey,uint256[] tokenIds,bytes32 commitment,bytes sealedChoice);
     event HolderVotesRevealed(uint256 indexed id,address indexed account,uint256 indexed holderKey,uint8 side,uint256 votes);
     event RoundSettled(uint256 indexed id, uint8 winner, bool refund, bool cancelled);
-    event Claimed(uint256 indexed id, address indexed account, uint256 gross, uint256 fee, uint256 amount);
+    event Claimed(uint256 indexed id, address indexed account, uint256 indexed betNonce, uint256 gross, uint256 fee, uint256 amount);
     event RevealerChanged(address indexed previous,address indexed current);
     event RevealerRevoked(address indexed previous,uint256 interruptedThroughRound);
     event RoundEmergencyCancelled(uint256 indexed id,address indexed caller);
@@ -157,19 +159,16 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
         r.revealEndsAt=r.unlockAt+REVEAL_DURATION;
         emit RoundStarted(currentRoundId,nftA,nftB,r.endsAt,r.unlockAt);
     }
-    function commitVote(uint256 id,bytes32 commitment,uint256 amount,uint256 holderTokenId,bytes calldata sealedChoice) external nonReentrant {
+    function commitVote(uint256 id,bytes32 commitment,uint256 amount,uint256 betNonce,bytes calldata sealedChoice) external nonReentrant {
         Round storage r=rounds[id];
         require(revealer!=address(0) && id>interruptedThroughRound,'Round interrupted');
         require(r.endsAt!=0 && block.timestamp<r.endsAt && !r.settled,'Betting closed');
         require(commitment!=bytes32(0),'Empty commitment');
         require(sealedChoice.length>0 && sealedChoice.length<=4096,'Invalid ciphertext size');
-        require(amount==0 || amount>=MIN_STAKE,'Minimum bet is 5000 CHOG');
-        Entry storage e=entries[id][msg.sender]; require(!e.committed,'Already participated');
-        if(amount==0){
-            require(collection.ownerOf(holderTokenId)==msg.sender,'NFT required');
-            require(!unstakedVoteUsed[id][holderTokenId],'NFT already used');
-            unstakedVoteUsed[id][holderTokenId]=true;
-        }
+        require(amount>=MIN_STAKE,'Minimum bet is 5000 CHOG');
+        require(betNonce==betCount[id][msg.sender],'Bet nonce changed');
+        Entry storage e=bets[id][msg.sender][betNonce];
+        betCount[id][msg.sender]++;
         e.commitment=commitment; e.amount=amount; e.committed=true;
         r.totalCommitted+=amount; r.committedCount++;
         if(amount>0){
@@ -177,7 +176,7 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
             chog.safeTransferFrom(msg.sender,address(this),amount);
             require(chog.balanceOf(address(this))-beforeBalance==amount,'Transfer-tax token unsupported');
         }
-        emit VoteCommitted(id,msg.sender,commitment,amount,sealedChoice);
+        emit VoteCommitted(id,msg.sender,betNonce,commitment,amount,sealedChoice);
     }
     function commitHolderVotes(uint256 id,uint256[] calldata tokenIds,bytes32 commitment,bytes calldata sealedChoice) external nonReentrant {
         Round storage r=rounds[id];
@@ -209,17 +208,18 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
         if(side==0)r.votesA+=e.weight;else r.votesB+=e.weight;
         emit HolderVotesRevealed(id,e.account,holderKey,side,e.weight);
     }
-    function revealVote(uint256 id,address account,uint8 side,uint256 tokenId,bytes32 salt) external {
+    function revealVote(uint256 id,address account,uint256 betNonce,uint8 side,uint256 tokenId,bytes32 salt) external {
         require(msg.sender==revealer,'Automatic revealer only');
         Round storage r=rounds[id];
         require(id>interruptedThroughRound,'Round interrupted');
         require(r.endsAt!=0 && block.timestamp>=r.unlockAt && block.timestamp<r.revealEndsAt && !r.settled,'Not revealing');
         require(side<2 && tokenId==(side==0?r.nftA:r.nftB),'Invalid NFT choice');
-        Entry storage e=entries[id][account]; require(e.committed && !e.revealed,'Invalid reveal');
-        require(e.commitment==keccak256(abi.encode(address(this),block.chainid,id,account,side,tokenId,e.amount,salt)),'Commitment mismatch');
+        Entry storage e=bets[id][account][betNonce]; require(e.committed && !e.revealed,'Invalid reveal');
+        require(e.commitment==keccak256(abi.encode(BET_DOMAIN,address(this),block.chainid,id,account,betNonce,side,tokenId,e.amount,salt)),'Commitment mismatch');
         e.revealed=true; e.side=side; r.revealedCount++;
-        if(side==0){r.votesA++;r.poolA+=e.amount;}else{r.votesB++;r.poolB+=e.amount;}
-        emit VoteRevealed(id,account,side,e.amount);
+        // Only the first committed bet carries a vote, even if it never opens.
+        if(side==0){if(betNonce==0)r.votesA++;r.poolA+=e.amount;}else{if(betNonce==0)r.votesB++;r.poolB+=e.amount;}
+        emit VoteRevealed(id,account,betNonce,side,e.amount);
     }
     function settle(uint256 id) external {
         Round storage r=rounds[id];
@@ -238,8 +238,8 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
         else{r.winner=r.votesA>r.votesB?0:1;points[r.winner==0?r.nftA:r.nftB]++;losses[r.winner==0?r.nftB:r.nftA]++;r.refund=r.poolA==0 || r.poolB==0;}
         emit RoundSettled(id,r.winner,r.refund,r.cancelled);
     }
-    function payoutBreakdown(uint256 id,address account) public view returns(uint256 gross,uint256 fee,uint256 amount){
-        Round storage r=rounds[id]; Entry storage e=entries[id][account];
+    function payoutBetBreakdown(uint256 id,address account,uint256 betNonce) public view returns(uint256 gross,uint256 fee,uint256 amount){
+        Round storage r=rounds[id]; Entry storage e=bets[id][account][betNonce];
         if(!r.settled || !e.committed || e.claimed || e.amount==0)return(0,0,0);
         if(!e.revealed || r.refund)return(e.amount,0,e.amount);
         if(e.side!=r.winner)return(0,0,0);
@@ -248,11 +248,16 @@ contract BeautyArena is Ownable2Step, ReentrancyGuard {
         gross=e.amount+Math.mulDiv(e.amount,losingPool,winningPool);
         fee=Math.mulDiv(gross,FEE_BPS,10000);amount=gross-fee;
     }
+    // First-bet views retained for integrations; later bets use their own nonce.
+    function entries(uint256 id,address account) external view returns(Entry memory){return bets[id][account][0];}
+    function payoutBreakdown(uint256 id,address account) public view returns(uint256 gross,uint256 fee,uint256 amount){return payoutBetBreakdown(id,account,0);}
     function payout(uint256 id,address account) public view returns(uint256){(,,uint256 amount)=payoutBreakdown(id,account);return amount;}
-    function claim(uint256 id) external nonReentrant {
-        (uint256 gross,uint256 fee,uint256 amount)=payoutBreakdown(id,msg.sender);
-        require(amount>0,'Nothing to claim');entries[id][msg.sender].claimed=true;treasuryCredit+=fee;
-        chog.safeTransfer(msg.sender,amount);emit Claimed(id,msg.sender,gross,fee,amount);
+    function claim(uint256 id) external nonReentrant {_claim(id,0);}
+    function claimBet(uint256 id,uint256 betNonce) external nonReentrant {_claim(id,betNonce);}
+    function _claim(uint256 id,uint256 betNonce) internal {
+        (uint256 gross,uint256 fee,uint256 amount)=payoutBetBreakdown(id,msg.sender,betNonce);
+        require(amount>0,'Nothing to claim');bets[id][msg.sender][betNonce].claimed=true;treasuryCredit+=fee;
+        chog.safeTransfer(msg.sender,amount);emit Claimed(id,msg.sender,betNonce,gross,fee,amount);
     }
     function withdrawFees() external nonReentrant {
         require(msg.sender==treasury,'Treasury only');uint256 amount=treasuryCredit;require(amount>0,'No fees');

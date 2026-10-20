@@ -5,9 +5,11 @@ import * as d from '../lib/demo.mjs';
 import {makeCommitment,makeSalt,DEMO_ARENA} from '../lib/commitments.mjs';
 // Monetary fixture values below are lots of 1,000 CHOG.
 const lots=n=>parseUnits(String(Number(n)*1000),18);
+// Historical v4 settlement remains unchanged after the voting upgrade.
 function fixture(){
   const state=d.createState(),now=Date.now(),ballots=new Map();state.ownership[1090]=d.user(state,'host').address;state.ownership[1233]=d.user(state,'opponent').address;
   const request=d.createChallenge(state,'host',1090,now),round=d.acceptChallenge(state,'opponent',request.id,1233,now);
+  round.protocolVersion=4;
   function commit(id,side,amount){const ballot={arena:DEMO_ARENA,chainId:143,roundId:round.id,account:d.user(state,id).address,side,tokenId:side?round.nftB:round.nftA,amount:amount.toString(),salt:makeSalt()};d.commitVote(state,id,{commitment:makeCommitment(ballot),sealedChoice:'opaque ciphertext',amount},now);ballots.set(id,ballot);return ballot;}
   function reveal(id){d.revealVote(state,id,ballots.get(id),round.unlockAt);}
   function finish(){for(const id of ballots.keys())reveal(id);d.settle(state,round,round.unlockAt);}
@@ -16,7 +18,7 @@ function fixture(){
 test('demo stores no plaintext side or salt before opening',()=>{
   const f=fixture();f.commit('a',1,lots(100));const e=f.round.entries.a;assert.equal(e.side,undefined);assert.equal(e.salt,undefined);assert.equal(f.round.poolA,'0');assert.equal(f.round.poolB,'0');assert.equal(f.round.votesA,0);assert.equal(f.round.votesB,0);assert.equal(f.round.totalCommitted,lots(100).toString());
 });
-test('one participation per wallet; holders choose a stake and non-holders must stake',()=>{
+test('legacy v4: one participation per wallet; holders choose a bet and non-holders must bet',()=>{
   const f=fixture();d.user(f.state,'visitor').holder=false;assert.throws(()=>f.commit('visitor',0,0n),/bet is required/);f.commit('holder',0,0n);f.commit('visitor',1,lots(5));assert.throws(()=>f.commit('holder',1,lots(1)),/Already voted/);
 });
 test('early reveals, late commits and mismatched choices are rejected',()=>{

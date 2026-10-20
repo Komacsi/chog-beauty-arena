@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {makeSalt,makeCommitment,phase,secretKey,DEMO_ARENA} from '../lib/commitments.mjs';
 const input={arena:DEMO_ARENA,chainId:143,roundId:1,account:'0x1111111111111111111111111111111111111111',side:0,tokenId:1090,amount:100n,salt:'0x'+'ab'.repeat(32)};
+test('paid bet commitments are domain separated and bound to an individual bet nonce',()=>{
+  const paid=makeCommitment({...input,betNonce:0});assert.notEqual(paid,makeCommitment(input));assert.notEqual(paid,makeCommitment({...input,betNonce:1}));
+});
 test('commitment binds the arena, chain, round, voter, NFT, side, amount and secret',()=>{
   const original=makeCommitment(input);
   for(const change of [{arena:'0x2222222222222222222222222222222222222222'},{chainId:144},{roundId:2},{account:'0x3333333333333333333333333333333333333333'},{side:1},{tokenId:1233},{amount:101n},{salt:'0x'+'cd'.repeat(32)}])assert.notEqual(makeCommitment({...input,...change}),original);

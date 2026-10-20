@@ -44,15 +44,15 @@ for(const rejectSimulation of [false,true])test(`keeper simulates a valid reveal
   const beacon=JSON.parse(await readFile(new URL('./fixtures/drand-round-1.json',import.meta.url),'utf8'));
   const client=drandClient(async()=>({ok:true,json:async()=>beacon}));
   const account='0x1111111111111111111111111111111111111111',address='0x2222222222222222222222222222222222222222';
-  const sealed=await sealBallot({arena:address,chainId:143,roundId:1,account,amount:'5000000000000000000000',side:0,tokenId:1},1,client);
+  const sealed=await sealBallot({arena:address,chainId:143,roundId:1,account,betNonce:0,amount:'5000000000000000000000',side:0,tokenId:1},1,client);
   const round={unlockAt:0,revealEndsAt:Math.floor(Date.now()/1000)+3600,beaconRound:1,nftA:1,nftB:2,revealedCount:0,committedCount:1,settled:false};
   const calls=[];
   const revealVote=async()=>{calls.push('send');return {wait:async()=>{round.revealedCount++;}};};
   revealVote.staticCall=async()=>{calls.push('simulate');if(rejectSimulation)throw Error('Contract rejects reveal');};
   const arena={
     getRound:async()=>round,getAddress:async()=>address,filters:{VoteCommitted:()=>({})},
-    queryFilter:async()=>[{args:{account,sealedChoice:toUtf8Bytes(sealed.sealedChoice)}}],
-    entries:async()=>({amount:5000000000000000000000n,commitment:sealed.commitment,revealed:false}),
+    queryFilter:async()=>[{args:{account,betNonce:0,sealedChoice:toUtf8Bytes(sealed.sealedChoice)}}],
+    bets:async()=>({amount:5000000000000000000000n,commitment:sealed.commitment,revealed:false}),
     revealVote,settle:async()=>({wait:async()=>{round.settled=true;}})
   };
   const provider={getBlock:async()=>({timestamp:Math.floor(Date.now()/1000)}),getBlockNumber:async()=>100,getNetwork:async()=>({chainId:143n})};

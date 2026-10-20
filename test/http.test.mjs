@@ -30,9 +30,19 @@ test('HTTP flow: empty lobby, profile ownership, cancel, accept, concurrent matc
     await request('challenges/create',{tokenId:b[1]});await request('demo/wallet',{persona:'alice'});await request('challenges/accept',{id:3,tokenId:a[1]});s=await request('state?round=1');assert.equal(s.rounds.length,2);assert.equal(s.round.id,1);
     await request('demo/wallet',{persona:'visitor'});s=await request('state');assert.equal(s.ownedTokens.length,0);await request('challenges/create',{tokenId:a[2]},400);
     const config=await request('config');assert.equal(config.minStake,'5000000000000000000000');assert.equal(config.release.realFundsEnabled,false);await request('deployment',undefined,403);
-    const payload={commitment:'0x'+'ab'.repeat(32),sealedChoice:'opaque ciphertext',amount:'5000'};await request('commit',payload,400);await request('commit',{...payload,roundId:999},400);
+    const payload={commitment:'0x'+'ab'.repeat(32),sealedChoice:'opaque ciphertext',amount:'5000',betNonce:0};await request('commit',payload,400);await request('commit',{...payload,roundId:999},400);
     await request('commit',{...payload,roundId:1,amount:'4999.999999999999999999'},400);
-    await request('commit',{...payload,roundId:1});s=await request('state?round=1');assert.equal(s.round.committedCount,1);assert.equal(s.entry.side,undefined);assert.equal(s.rounds.find(r=>r.id===2).committedCount,0);
+    await request('commit',{...payload,roundId:1});s=await request('state?round=1');assert.equal(s.round.committedCount,1);assert.equal(s.betCount,1);assert.equal(s.round.entries,undefined);assert.equal(s.rounds.find(r=>r.id===2).committedCount,0);
+    await request('commit',{...payload,roundId:1},400);await request('commit',{...payload,roundId:1,betNonce:1});
+    assert.equal((await request('state?round=1')).betCount,2);
+    await request('holder-votes',{...payload,roundId:1,tokenIds:[a[0]]},400);
+    await request('demo/wallet',{persona:'alice'});
+    const nftPayload={roundId:1,tokenIds:[a[0],a[1]],commitment:payload.commitment,sealedChoice:payload.sealedChoice};
+    await request('holder-votes',{...nftPayload,side:0},400);await request('holder-votes',{...nftPayload,salt:'secret'},400);
+    await request('holder-votes',{...nftPayload,tokenIds:[a[0],b[0]]},400);assert.equal((await request('state?round=1')).usedNfts.length,0);
+    await request('holder-votes',nftPayload);await request('holder-votes',nftPayload,400);
+    await request('holder-votes',{...nftPayload,tokenIds:[a[2]]});await request('commit',{...payload,roundId:1});
+    s=await request('state?round=1');assert.equal(s.round.committedCount,6);assert.equal(s.betCount,1);assert.equal(s.usedNfts.length,3);assert.equal(s.round.votesA,0);assert.equal(s.round.holderEntries,undefined);
     await request('commit',{...payload,roundId:2,amount:'0'},400);assert.equal((await request('state?round=999')).round,null);
     assert.equal((await fetch(base+'/profile')).status,200);await request('pair',undefined,404);
   }finally{child.kill();await new Promise(resolve=>child.exitCode!==null?resolve():child.once('exit',resolve));await rm(dir,{recursive:true,force:true});}

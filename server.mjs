@@ -43,14 +43,14 @@ if(live){
   await validateGovernance(provider,governanceAddress);
 }
 const port=Number(process.env.PORT || 3000);
-function publicRound(r){if(!r)return null;const {entries,...rest}=r;return rest;}
+function publicRound(r){if(!r)return null;const {entries,holderEntries,betCounts,usedNfts,...rest}=r;return rest;}
 const readLive=createLiveCache(async()=>{
   const [countRound,activeRevealer,governanceAddress,cutoff]=await Promise.all([arena.currentRoundId(),arena.revealer(),arena.owner(),arena.interruptedThroughRound()]);
   const current=Number(countRound),interruptedThroughRound=Number(cutoff);
   const history=[],rounds=[],challenges=[];const points={},losses={};
   for(let id=1;id<=current;id++) {
     const r=await arena.getRound(id);
-    const item={id,nftA:Number(r.nftA),nftB:Number(r.nftB),endsAt:Number(r.endsAt)*1000,unlockAt:Number(r.unlockAt)*1000,revealEndsAt:Number(r.revealEndsAt)*1000,beaconRound:Number(r.beaconRound),committedCount:Number(r.committedCount),revealedCount:Number(r.revealedCount),totalCommitted:r.totalCommitted.toString(),protocolVersion:5,interrupted:!r.settled && id<=interruptedThroughRound,votesA:Number(r.votesA),votesB:Number(r.votesB),poolA:r.poolA.toString(),poolB:r.poolB.toString(),settled:r.settled,winner:Number(r.winner),refund:r.refund,cancelled:r.cancelled};
+    const item={id,nftA:Number(r.nftA),nftB:Number(r.nftB),endsAt:Number(r.endsAt)*1000,unlockAt:Number(r.unlockAt)*1000,revealEndsAt:Number(r.revealEndsAt)*1000,beaconRound:Number(r.beaconRound),committedCount:Number(r.committedCount),revealedCount:Number(r.revealedCount),totalCommitted:r.totalCommitted.toString(),protocolVersion:6,interrupted:!r.settled && id<=interruptedThroughRound,votesA:Number(r.votesA),votesB:Number(r.votesB),poolA:r.poolA.toString(),poolB:r.poolB.toString(),settled:r.settled,winner:Number(r.winner),refund:r.refund,cancelled:r.cancelled};
     if(item.settled){history.push(item);if(!item.cancelled && item.winner!==2){const token=item.winner===0?item.nftA:item.nftB,loser=item.winner===0?item.nftB:item.nftA;points[token]=(points[token] || 0)+1;losses[loser]=(losses[loser] || 0)+1;}}
     if(!item.settled)rounds.push(item);
   }
@@ -67,8 +67,13 @@ function tick(){
     for(const r of state.rounds){const now=Date.now();
     if(!r.settled && now>=(r.unlockAt || r.endsAt)){
       if(r.revealEndsAt && now<r.revealEndsAt){
-        for(const [id,e]of Object.entries(r.entries))if(!e.revealed){
-          try{const ballot=await openBallot(e.sealedChoice,{arena:DEMO_ARENA,chainId:CHAIN_ID,roundId:r.id,account:demo.user(state,id).address,amount:e.amount,commitment:e.commitment,beaconRound:r.beaconRound,nftA:r.nftA,nftB:r.nftB},r.unlockAt,demoDrand);demo.revealVote(state,id,ballot);}
+        for(const [key,e]of Object.entries(r.entries))if(!e.revealed){
+          const id=e.userId ?? key;
+          try{const ballot=await openBallot(e.sealedChoice,{arena:DEMO_ARENA,chainId:CHAIN_ID,roundId:r.id,account:demo.user(state,id).address,amount:e.amount,commitment:e.commitment,beaconRound:r.beaconRound,nftA:r.nftA,nftB:r.nftB,...(r.protocolVersion>=6?{betNonce:e.betNonce}:{})},r.unlockAt,demoDrand);demo.revealVote(state,id,ballot);}
+          catch{r.keeperStatus='Waiting for verified automatic opening';}
+        }
+        for(const e of Object.values(r.holderEntries || {}))if(!e.revealed){
+          try{const ballot=await openBallot(e.sealedChoice,{arena:DEMO_ARENA,chainId:CHAIN_ID,roundId:r.id,account:e.account,amount:'0',holderKey:e.holderKey,holderTokenIdsHash:e.tokenIdsHash,commitment:e.commitment,beaconRound:r.beaconRound,nftA:r.nftA,nftB:r.nftB},r.unlockAt,demoDrand);demo.revealHolderVotes(state,e.userId,ballot);}
           catch{r.keeperStatus='Waiting for verified automatic opening';}
         }
       }
@@ -101,8 +106,8 @@ const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connec
         const selected=Number(url.searchParams.get('round'));
         const round=url.searchParams.get('round')?[...data.rounds,...data.history].find(r=>r.id===selected) || null:data.rounds.at(-1) || null;
         const account=live?null:demo.user(state,id);
-        const claims=live?[]:state.rounds.filter(r=>demo.payout(r,id)>0n).map(r=>{const p=demo.payoutBreakdown(r,id);return {id:r.id,gross:p.gross.toString(),fee:p.fee.toString(),amount:p.amount.toString()};});
-        return json(res,200,{...data,round,account,claims,persona,ownedTokens:live?[]:demo.ownedTokens(state,id),entry:live?null:state.rounds.find(r=>r.id===round?.id)?.entries[id] || null,serverNow:Date.now()});
+        const claims=live?[]:demo.claimsFor(state,id),privateRound=live?null:state.rounds.find(r=>r.id===round?.id);
+        return json(res,200,{...data,round,account,claims,persona,ownedTokens:live?[]:demo.ownedTokens(state,id),betCount:live?0:demo.nextBetNonce(privateRound,id),usedNfts:live?[]:Object.keys(privateRound?.usedNfts || {}).map(Number),entry:privateRound?.entries[id] || null,serverNow:Date.now()});
       }
       if(req.method==='POST'){
         if(live)return json(res,405,{error:'Live transactions must be signed in your wallet'});
@@ -112,12 +117,19 @@ const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connec
         if(url.pathname==='/api/commit'){
           if('side' in body || 'salt' in body)throw Error('Plaintext choices must never be sent to this endpoint');
           if(!Number.isSafeInteger(body.roundId))throw Error('Select a round');
-          demo.commitVote(state,id,{roundId:body.roundId,commitment:body.commitment,sealedChoice:body.sealedChoice,amount:parseUnits(String(body.amount || '0'),18)});
+          demo.commitVote(state,id,{roundId:body.roundId,betNonce:body.betNonce,commitment:body.commitment,sealedChoice:body.sealedChoice,amount:parseUnits(String(body.amount || '0'),18)});
+        }
+        else if(url.pathname==='/api/holder-votes'){
+          if('side' in body || 'salt' in body)throw Error('Plaintext choices must never be sent to this endpoint');
+          demo.commitHolderVotes(state,id,body);
         }
         else if(url.pathname==='/api/challenges/create')demo.createChallenge(state,id,body.tokenId);
         else if(url.pathname==='/api/challenges/cancel')demo.cancelChallenge(state,id,body.id);
         else if(url.pathname==='/api/challenges/accept')demo.acceptChallenge(state,id,body.id,body.tokenId,Date.now(),demoFastRounds);
-        else if(url.pathname==='/api/claim')demo.claim(state,state.rounds.find(r=>r.id===body.id) || {},id);
+        else if(url.pathname==='/api/claim'){
+          if(body.betNonce!==undefined && (!Number.isSafeInteger(body.betNonce) || body.betNonce<0))throw Error('Invalid bet');
+          demo.claim(state,state.rounds.find(r=>r.id===body.id) || {},id,body.betNonce);
+        }
         else if(url.pathname==='/api/demo/wallet'){
           if(!['alice','bob','visitor'].includes(body.persona))throw Error('Unknown demo wallet');
           res.setHeader('set-cookie',`arena_persona=${body.persona}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000`);

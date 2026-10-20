@@ -1,6 +1,6 @@
 # Chog: Beauty Arena
 
-24-hour contests between two Chog Genesis NFTs. One wallet is one vote. Holders choose whether to participate with or without a CHOG bet. Non-holders must place a bet. Only bettors receive token payouts.
+24-hour contests between two Chog Genesis NFTs. Each owned NFT gives one vote without a CHOG bet. NFT groups may back different sides. The same wallet may also place multiple CHOG bets; only its first paid bet adds one additional vote. Every bet participates in payouts. Non-holders participate by betting. See [NFT_VOTING.md](NFT_VOTING.md) for protocol 6.
 
 ## Holder-created battles and profiles
 
@@ -10,7 +10,7 @@ Use `npm run start:demo` to run the simulation independently of any future live 
 
 Connect a wallet and open **Profile** to see owned NFTs and create a battle request. The prototype displays only the 10 imported NFTs; it does not fetch all 1969 images. Live ownership is read from the NFT contract, and the arena enforces ownership again in the transaction. Demo mode provides Holder A, Holder B and Non-holder personas with simulated ownership.
 
-The interface uses collection names (for example, CHOG #1760) rather than internal contract token IDs. Token-ID search is available only in the leaderboard. Live participation without a bet automatically uses one of the wallet's imported owned NFTs as its eligibility proof; there is no manual token-ID field. Wallets whose NFTs are outside the ten-item prototype sample can participate with a bet until their NFTs are imported.
+The interface uses collection names (for example, CHOG #1760) rather than internal contract token IDs. Token-ID search is available only in the leaderboard. For votes without a bet, select one NFT or a group using thumbnail checkboxes. Every selected NFT adds one vote; its ID is marked used for that battle, so a transfer cannot vote again. NFTs stay in wallets and no NFT approvals are requested. Larger selections use batches of up to 50 NFTs per transaction; there is no five-NFT or per-wallet cap. Wallets whose NFTs are outside the ten-item prototype sample can participate with a bet until their NFTs are imported.
 
 - `createChallenge(tokenId)` creates an open request with the caller's NFT. No round, voting or betting starts yet.
 - A different holder calls `acceptChallenge(requestId, ownTokenId)` to start the round. Both NFTs must still belong to the respective participants. The 24-hour deadline is calculated from the acceptance block, irrespective of how long the request waited.
@@ -26,10 +26,10 @@ The leaderboard records each NFT's total wins, losses and draws, ordered by wins
 Choices are encrypted locally using drand quicknet timelock encryption (`tlock-js`). The browser sends only a salted commitment, bet amount and fixed-size encrypted ballot. The server does not hold a decryption key and does not receive the plaintext side or salt during betting.
 
 1. Another holder accepts an open request with an available NFT they own, starting a fixed NFT pair and a 24-hour betting window.
-2. A participant approves CHOG if needed, then submits `commitVote`. Choices with and without bets are encrypted. The commitment binds the chain, arena address, round, voter, token ID, side, amount and random 256-bit salt.
+2. NFT holders submit `commitHolderVotes` with a selected group; paid participants approve the exact CHOG amount if needed and submit `commitVote` with the next per-wallet bet nonce. Both choices are encrypted and domain separated. Commitments bind the chain, arena, round, account, contender and random salt, plus the exact NFT set or the paid bet amount/nonce. Only paid nonce 0 adds a vote, even when it fails to open; repeat bets never inherit that vote.
 3. Wallet addresses, bet amounts and the total deposited pool are public. Neither side totals nor chosen sides are published during acceptance. Padded plaintext prevents ciphertext-length leaks between token IDs of different lengths.
 4. The drand unlock time is at least five minutes after acceptance closes, with a one-hour opening window. This margin reduces wall-clock/block-timestamp boundary risks.
-5. A separate keeper fetches a signed drand beacon, verifies it against the pinned production quicknet key, decrypts the onchain ciphertexts and submits `revealVote` transactions. Only the currently authorized revealer can submit matching reveals; participants cannot reveal manually. Rewards remain bound to the original participant. The service is trusted to reveal every valid published ciphertext and can influence results by omitting votes.
+5. A separate keeper fetches a signed drand beacon, verifies it against the pinned production quicknet key, decrypts the onchain ciphertexts and submits `revealVote` / `revealHolderVotes` transactions. Only the currently authorized revealer can submit matching reveals; participants cannot reveal manually. Rewards remain bound to the original participant. The service is trusted to reveal every valid published ciphertext and can influence results by omitting votes.
 6. No second participant action is required for opening. Once all choices open, anyone can settle. At the opening deadline, only revealed votes and their pools count. Unopened entries are excluded and their own bets are refundable in full without fees; they cannot cancel the valid result. If no votes open, the result is 0–0 with full refunds and no recorded draw. Anyone can settle or claim their own payout/refund; only the service can reveal.
 
 After closing, choices become publicly readable. This provides pre-close choice privacy, not anonymous transfers or permanent secrecy. Security depends on the drand threshold network not releasing future beacons early. The frontend must also serve the reviewed encryption code. A participant can voluntarily disclose their own choice.
@@ -40,10 +40,10 @@ After closing, choices become publicly readable. This provides pre-close choice 
 
 The contender with more revealed votes wins, regardless of bet amounts. A complete, non-tied winner earns one NFT leaderboard point.
 
-When both sides have bets, calculate each winning participant separately:
+When both sides have bets, calculate each winning bet separately. A wallet may have multiple independently claimable bets, including bets on opposite sides:
 
 ```text
-gross = ownStake + floor(ownStake * losingPool / winningPool)
+gross = ownBet + floor(ownBet * losingPool / winningPool)
 fee   = floor(gross * 100 / 10000)
 net   = gross - fee
 ```

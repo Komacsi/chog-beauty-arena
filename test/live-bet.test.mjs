@@ -25,11 +25,11 @@ test('NFT voting rejects already used tokens and wallet changes before any signa
 function fixture(changeAt){
   let changed=false;const calls=[];
   const options={account:'0x1111111111111111111111111111111111111111',chainId:143,roundId:7,side:1,amount:5000n*10n**18n,holderId:0,
-    arena:{getRound:async()=>({endsAt:100n,settled:false,nftA:299n,nftB:379n,beaconRound:123456n}),getAddress:async()=>'0x2222222222222222222222222222222222222222',commitVote:async(...args)=>{calls.push(['commit',...args]);return {wait:async()=>{}};}},
+    arena:{betCount:async()=>0n,getRound:async()=>({endsAt:100n,settled:false,nftA:299n,nftB:379n,beaconRound:123456n}),getAddress:async()=>'0x2222222222222222222222222222222222222222',commitVote:async(...args)=>{calls.push(['commit',...args]);return {wait:async()=>{}};}},
     token:{allowance:async()=>0n,approve:async(...args)=>{calls.push(['approve',...args]);return {wait:async()=>{if(changeAt==='approval')changed=true;}};}},
     seal:async(ballot,beacon)=>{calls.push(['seal',ballot,beacon]);if(changeAt==='encryption')changed=true;return {commitment:'0x'+'ab'.repeat(32),sealedChoice:'encrypted'};},
     assertWallet:async()=>{if(changed)throw Error('Wallet changed');}
-  };return {options,calls};
+  };options.arena.commitVote.staticCall=async()=>{};return {options,calls};
 }
 
 for(const stage of ['encryption','approval'])test(`wallet replacement during ${stage} never submits a mismatched commitment`,async()=>{
