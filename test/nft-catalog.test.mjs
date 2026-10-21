@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {resolve,join,sep} from 'node:path';
 import {tmpdir} from 'node:os';
-import {createNftCatalog,ipfsPath} from '../lib/nft-catalog.mjs';
+import {createNftCatalog,ipfsPath,catalogGateways} from '../lib/nft-catalog.mjs';
+test('host preference reorders only the two fixed HTTPS IPFS gateways',()=>{
+  assert.deepEqual(catalogGateways('pinata'),catalogGateways().slice().reverse());
+  for(const value of ['https://internal/','__proto__','constructor',''])assert.throws(()=>catalogGateways(value),/must be filebase or pinata/);
+});
 const cid='bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu',uri=`ipfs://${cid}/1462.json`,image=`ipfs://${cid}/1462.webp`,png=Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]);
 async function fixture(t,options={}){
   const cacheDir=await mkdtemp(join(tmpdir(),'chog-nft-cache-'));assert.ok(resolve(cacheDir).startsWith(resolve(tmpdir())+sep));t.after(()=>rm(cacheDir,{recursive:true,force:true}));

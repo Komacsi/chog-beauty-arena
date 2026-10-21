@@ -1,7 +1,30 @@
 # VPS launch runbook
 
-Prepared 21 October 2026. No server has been purchased or configured. The live
-release guard stays enabled until the remaining application/asset and host checks pass.
+Prepared 21 October 2026. The operator's Ubuntu 24.04 VPS now runs a separate,
+closed staging copy; see security/vps-staging.json. There is no domain/public
+HTTPS or live arena/keeper yet. The live release guard remains enabled.
+
+## Current closed staging
+
+The app listens on 127.0.0.1:3000 and Caddy explicitly binds 127.0.0.1:8080.
+A Caddy site address alone is not an interface restriction: use the bind directive
+in Caddyfile.staging and confirm actual listeners with ss. Caddy admin is disabled.
+Access is through an authenticated SSH local forward, not a public web listener.
+The local original demo and its database remain separate.
+
+ops/prepare-ubuntu.sh installs official Node 24 LTS after SHA-256 verification
+and official signed Caddy packages. ops/configure-staging.sh initializes only a
+fresh deployment and refuses to overwrite an existing app/configuration. It
+creates separate service users and root-owned runtime files, selects Pinata as
+the first of the two fixed IPFS gateways and starts only the fictional website.
+Keeper/monitor units are installed but disabled until a real arena and secure
+credentials exist. Scripts are operator tools, not an automatic live-release bypass.
+
+Host checks passed: Monad RPC and pinned drand info, an IPFS metadata fallback,
+11 durable keeper tests, Caddy/systemd validation, 50 HTTP requests in groups of
+10, oversized body rejection, restart persistence and isolated SQLite restore
+served by chogweb. Production dependency audit reported zero findings. These
+checks do not measure live reveal throughput or deliver external alerts.
 
 ## Proposed first host
 
@@ -85,6 +108,6 @@ The demo at localhost:3104 uses its own directory and must not be migrated/reset
 
 ## Operator inputs still needed
 
-VPS provider/account, server creation, domain/DNS, alert destination and secure
-on-server keeper credential setup. No password or seed phrase is needed in chat.
+Domain/DNS, alert destination and secure on-server keeper credential setup.
+No password or seed phrase is needed in chat.
 Live asset verification and measured host tests remain launch conditions.

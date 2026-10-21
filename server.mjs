@@ -12,7 +12,7 @@ import {drawTotals} from './lib/leaderboard.mjs';
 import {RELEASE_STATUS,assertLiveReleaseAllowed} from './lib/release.mjs';
 import {validateGovernance} from './lib/governance.mjs';
 import {createLiveCache} from './lib/live-cache.mjs';
-import {createNftCatalog,validTokenId} from './lib/nft-catalog.mjs';
+import {createNftCatalog,validTokenId,catalogGateways} from './lib/nft-catalog.mjs';
 import {ChainIndex} from './lib/chain-index.mjs';
 const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
 assertLiveReleaseAllowed(arenaAddress);
@@ -38,7 +38,7 @@ const rpcConnection=new FetchRequest(RPC_URL);rpcConnection.timeout=15000;
 const provider=live?new JsonRpcProvider(rpcConnection,CHAIN_ID,{batchMaxCount:1}):null;
 const arena=live?new Contract(arenaAddress,artifact.abi,provider):null;
 let catalogProvider;
-const nftCatalog=createNftCatalog({seedNfts:nfts,cacheDir:resolve(stateDir,'nft-cache'),readTokenUri:async tokenId=>{
+const nftCatalog=createNftCatalog({seedNfts:nfts,cacheDir:resolve(stateDir,'nft-cache'),gateways:catalogGateways(process.env.NFT_IPFS_PRIMARY || 'filebase'),readTokenUri:async tokenId=>{
   if(!catalogProvider){const connection=new FetchRequest(RPC_URL);connection.timeout=15000;catalogProvider=new JsonRpcProvider(connection,CHAIN_ID,{batchMaxCount:1});}
   if(Number((await catalogProvider.getNetwork()).chainId)!==CHAIN_ID)throw Error('Wrong NFT network');
   return new Contract(COLLECTION,['function tokenURI(uint256) view returns(string)'],catalogProvider).tokenURI(tokenId);
