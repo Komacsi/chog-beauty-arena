@@ -1,0 +1,27 @@
+{
+    admin off
+}
+
+# Retain the existing closed staging URL/SSH forward.
+http://:8080 {
+    bind 127.0.0.1
+    request_body {
+        max_size 16KB
+    }
+    reverse_proxy 127.0.0.1:3000
+}
+
+# Free public DNS resolves this name to the existing VPS. Only the API is public.
+chog-api.72-56-98-23.sslip.io {
+    request_body {
+        max_size 16KB
+    }
+    header X-Content-Type-Options nosniff
+    @api path /api/*
+    handle @api {
+        reverse_proxy 127.0.0.1:3000
+    }
+    handle {
+        respond "Not found" 404
+    }
+}

@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 test('HTTP flow: empty lobby, profile ownership, cancel, accept, concurrent matches and selected-round commits',async()=>{
   const dir=await mkdtemp(join(tmpdir(),'chog-matchmaking-'));
-  const child=spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,PORT:'0',ARENA_STATE_DIR:dir,ARENA_CONTRACT_ADDRESS:'',DEMO_FAST_ROUNDS:'0'},stdio:['ignore','pipe','pipe']});
+  const child=spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,PORT:'0',ARENA_STATE_DIR:dir,ARENA_CONTRACT_ADDRESS:'',DEMO_FAST_ROUNDS:'0',ARENA_WEB_ORIGINS:'https://arena.netlify.app'},stdio:['ignore','pipe','pipe']});
   let logs='',cookies=new Map();child.stderr.on('data',()=>{});
   try{
     const base=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server timeout')),15000);child.stdout.on('data',d=>{logs+=d;const m=logs.match(/http:\/\/localhost:(\d+)/);if(m){clearTimeout(timer);resolve('http://127.0.0.1:'+m[1]);}});child.once('exit',code=>{clearTimeout(timer);reject(Error('Server exited '+code));});});
@@ -19,6 +19,10 @@ test('HTTP flow: empty lobby, profile ownership, cancel, accept, concurrent matc
     const burst=await Promise.all(Array.from({length:40},()=>fetch(base+'/api/state?fresh=1')));assert.ok(burst.every(r=>r.status===200));
     const foreignOrigin=await fetch(base+'/api/challenges/create',{method:'POST',headers:{origin:'https://untrusted.example','content-type':'application/json'},body:JSON.stringify({tokenId:a[0]})});
     assert.equal(foreignOrigin.status,403);assert.equal((await request('state')).challenges.length,0);
+    const proxyPost=origin=>fetch(base+'/api/demo/wallet',{method:'POST',headers:{origin,'content-type':'application/json','x-forwarded-host':'arena.netlify.app'},body:JSON.stringify({persona:'alice'})});
+    assert.equal((await proxyPost('https://arena.netlify.app')).status,200);
+    assert.equal((await proxyPost('https://another.netlify.app')).status,403);
+    assert.equal((await proxyPost('null')).status,403);
     assert.equal((await fetch(base+'/%2e%2e%2fpackage.json')).status,403);
     // A backslash is a separator on Windows and a literal filename on POSIX.
     assert.ok([403,404].includes((await fetch(base+'/%2e%2e%5cpackage.json')).status));

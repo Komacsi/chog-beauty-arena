@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build:netlify"
+  publish = "dist/netlify"
+
+[build.environment]
+  NODE_VERSION = "24"
+  ARENA_API_ORIGIN = "https://chog-api.72-56-98-23.sslip.io"
+
+# _redirects and _headers are generated in the browser-only publish directory.
+# API responses remain no-store; SQLite and the keeper never run in Functions.

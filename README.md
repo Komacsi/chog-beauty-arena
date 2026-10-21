@@ -130,4 +130,13 @@ Display numbers can differ from token IDs: contract token 1090 is named CHOG #58
 - `public/`: profiles, request lobby, concurrent battles, sealed side totals, win/loss leaderboard and gross/fee/net rewards
 - `test/`: cryptographic fixtures, privacy boundaries, contract and payout tests
 
+## Netlify hosting
+
+`npm run build:netlify` produces a checked browser-only `dist/netlify` directory.
+The existing VPS retains the persistent API/database and keeper; Netlify proxies
+`/api/*` to its HTTPS origin. No purchased domain is needed. See
+[ops/NETLIFY.md](ops/NETLIFY.md) for the Free-plan setup, public API approval,
+exact-origin validation and acceptance checks. Publishing the frontend does not
+enable real CHOG transactions or change the independent local demo.
+
 Maintained in https://github.com/Komacsi/chog-beauty-arena.

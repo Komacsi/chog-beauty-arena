@@ -14,6 +14,8 @@ import {validateGovernance} from './lib/governance.mjs';
 import {createLiveCache} from './lib/live-cache.mjs';
 import {createNftCatalog,validTokenId,catalogGateways} from './lib/nft-catalog.mjs';
 import {ChainIndex} from './lib/chain-index.mjs';
+import {webOrigins,allowedWebOrigin} from './lib/web-origin.mjs';
+const allowedOrigins=webOrigins(process.env.ARENA_WEB_ORIGINS);
 const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
 assertLiveReleaseAllowed(arenaAddress);
 const root=import.meta.dirname;
@@ -106,7 +108,7 @@ const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connec
       }catch{return json(res,503,{error:'NFT details temporarily unavailable. Please retry.'});}
     }
     if(url.pathname.startsWith('/api/')) {
-      if(req.method==='POST' && req.headers.origin && new URL(req.headers.origin).host!==req.headers.host)return json(res,403,{error:'Invalid origin'});
+      if(req.method==='POST' && !allowedWebOrigin(req.headers.origin,req.headers.host,allowedOrigins))return json(res,403,{error:'Invalid origin'});
       let id=req.headers.cookie?.match(/(?:^|; )arena_demo=([a-f0-9-]{36})(?:;|$)/)?.[1];
       if(!id){id=randomUUID();res.setHeader('set-cookie',`arena_demo=${id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000`);}
       const persona=req.headers.cookie?.match(/(?:^|; )arena_persona=(alice|bob|visitor)(?:;|$)/)?.[1] || 'alice';

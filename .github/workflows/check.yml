@@ -14,9 +14,9 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run check
-      - run: bash -n ops/prepare-ubuntu.sh ops/configure-staging.sh
+      - run: bash -n ops/prepare-ubuntu.sh ops/configure-staging.sh ops/configure-netlify.sh
       - run: python3 -c "import ast, pathlib; ast.parse(pathlib.Path('scripts/host-preflight.py').read_text())"
-      - run: npm run build
+      - run: npm run build:netlify
       - run: npm test
       - run: npm run build:runtime
       - run: node scripts/check-runtime.mjs dist/runtime
