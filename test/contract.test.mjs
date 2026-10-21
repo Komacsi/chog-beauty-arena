@@ -10,6 +10,13 @@ import {processRound} from '../lib/keeper.mjs';
 import {deploySafe} from '../test-support/safe.mjs';
 import {validateGovernance} from '../lib/governance.mjs';
 import {holderTokensHash,normalizeHolderTokens} from '../lib/holder-ballots.mjs';
+import {ChainIndex} from '../lib/chain-index.mjs';
+import {KeeperTransactions} from '../lib/keeper-transactions.mjs';
+import {keeperCycle} from '../lib/keeper-cycle.mjs';
+import {Wallet,parseEther} from 'ethers';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 const compiled=compile({'Mocks.sol':{content:`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
@@ -32,6 +39,43 @@ contract MockToken is ERC20 {
 contract MockNFT is ERC721 { constructor() ERC721('Chog','CHOG') {} function mint(address a,uint256 n) external {_mint(a,n);} function burn(uint256 n) external {require(ownerOf(n)==msg.sender);_burn(n);} }`}});
 // Monetary fixture values below are lots of 1,000 CHOG.
 const lots=n=>parseUnits(String(Number(n)*1000),18);
+
+test('durable keeper resumes after every send, opens real timelocks and settles exact combined payouts',async()=>{
+  const f=await fixture(true),dir=await mkdtemp(join(tmpdir(),'chog-durable-integration-'));let index,transactions;
+  try{
+    const signer=Wallet.createRandom().connect(f.provider);await(await f.signers[0].sendTransaction({to:signer.address,value:parseEther('1')})).wait();await f.govern('setRevealer',[signer.address]);
+    const beacon=JSON.parse(await readFile(new URL('./fixtures/drand-round-1.json',import.meta.url),'utf8')),client=drandClient(async()=>({ok:true,json:async()=>beacon}));
+    const b={arena:f.arena.target,chainId:1337,roundId:1,account:await f.signers[0].getAddress(),side:0,tokenId:1,amount:'0',holderKey:1,holderTokenIdsHash:holderTokensHash([1,3])},s=await sealBallot(b,1,client);
+    await(await f.arena.commitHolderVotes(1,[1,3],s.commitment,toUtf8Bytes(s.sealedChoice))).wait();
+    for(const [who,side,nonce]of [[1,0,0],[1,0,1],[2,1,0]]){
+      const ballot={arena:f.arena.target,chainId:1337,roundId:1,account:await f.signers[who].getAddress(),side,tokenId:side?2:1,amount:lots(5).toString(),betNonce:nonce},sealed=await sealBallot(ballot,1,client);
+      await(await f.arena.connect(f.signers[who]).commitVote(1,sealed.commitment,lots(5),nonce,toUtf8Bytes(sealed.sealedChoice))).wait();
+    }
+    await f.commit(3,1,lots(5)); // Invalid ciphertext must refund, never block the rest.
+    const connected=f.arena.connect(signer),open=()=>{
+      index=new ChainIndex(join(dir,'index.sqlite'),{chainId:1337,arena:f.arena.target,collection:f.nft.target,fromBlock:0});
+      transactions=new KeeperTransactions(join(dir,'tx.sqlite'),{provider:f.provider,signer,arena:f.arena.target,chainId:1337});
+    };open();
+    const cycle=async()=>{
+      for(let i=0;i<3;i++)await f.provider.send('evm_mine',[]);
+      const block=await f.provider.getBlock('latest');
+      const result=await keeperCycle({arena:connected,provider:f.provider,index,transactions,client,expectedRevealer:signer.address,chainId:1337,now:()=>Number(block.timestamp)*1000});
+      // Simulate a process restart after each cycle, including pending broadcasts.
+      index.close();transactions.close();open();return result;
+    };
+    await f.goto((await f.arena.getRound(1)).unlockAt);
+    for(let i=0;i<12;i++){await cycle();if((await f.arena.getRound(1)).revealedCount===5n)break;}
+    const revealed=await f.arena.getRound(1);assert.equal(revealed.revealedCount,5n);assert.equal(revealed.votesA,3n);assert.equal(revealed.votesB,1n);
+    await f.goto(revealed.revealEndsAt);
+    for(let i=0;i<5 && !(await f.arena.getRound(1)).settled;i++)await cycle();
+    assert.equal((await f.arena.getRound(1)).settled,true);await cycle();await index.snapshots(connected);
+    const view=index.view();assert.equal(view.points[1],1);assert.equal(view.losses[2],1);assert.deepEqual(index.walletRounds(await f.signers[1].getAddress()),[1]);
+    const p=await f.arena.payoutBreakdown(1,await f.signers[1].getAddress());assert.equal(p.gross,lots(15));assert.equal(p.fee,lots('0.15'));assert.equal(p.amount,lots('14.85'));
+    assert.equal(await f.arena.payout(1,await f.signers[3].getAddress()),lots(5));
+    for(const i of [1,3])await(await f.arena.connect(f.signers[i]).claim(1)).wait();await(await f.arena.connect(f.signers[5]).withdrawFees()).wait();assert.equal(await f.token.balanceOf(f.arena.target),0n);
+    assert.equal(await f.nft.ownerOf(1),b.account);assert.equal(await f.nft.ownerOf(3),b.account);
+  }finally{index?.close();transactions?.close();await f.close();await rm(dir,{recursive:true,force:true});}
+});
 test('deposits and aggregate refunds preserve the exact amount down to the last CHOG unit',async()=>{const f=await fixture();try{
   const account=await f.signers[1].getAddress(),before=await f.token.balanceOf(account),minimum=lots(5);
   await f.commit(1,0,minimum+1n);await f.commit(1,1,minimum+2n);await f.commit(2,1,minimum+3n);

@@ -77,7 +77,7 @@ not installed automatically and must be tested on the selected Linux host.
 Store an encrypted Ethereum JSON keystore and its password outside the checkout,
 root-owned 0600, under /etc/chog-arena. LoadCredential passes private copies to
 the keeper; raw KEEPER_PRIVATE_KEY is rejected. The public.env file contains only
-ARENA_CONTRACT_ADDRESS, MONAD_RPC_URL and KEEPER_FROM_BLOCK (and public alert
+ARENA_CONTRACT_ADDRESS, MONAD_RPC_URL, ARENA_FROM_BLOCK and KEEPER_FROM_BLOCK (and public alert
 thresholds), not credential paths/passwords. Unit credential environment paths
 must not be overridden by a local .env file. Prefer no .env in the deployment
 checkout. The Node runtime must be /usr/bin/node 24+ or update ExecStart.
@@ -102,8 +102,20 @@ check, not the missing durable event/nonce index or an uptime guarantee.
 
 The keeper stops when it observes a different authorized address. Contract
 authorization is the security boundary even if a malicious old process keeps
-running. Receipt timeouts do not cancel broadcasts; pending nonce recovery and
-durable indexing remain release requirements in SECURITY_REVIEW.md.
+running. The production service now persists signed bytes before broadcasting,
+reconciles all replacement hashes and permits only one outstanding nonce. Its
+private transaction journal survives restarts; never delete it to clear an error.
+Unknown nonce consumption stops further signing until operator reconciliation.
+Replacement raises fees after 120 seconds while preserving nonce and calldata,
+up to the configured code limits (default 2,000,000 gas / 1,000 MON-gwei per gas).
+Three confirmations and a canonical receipt block hash are required. The public
+index can be rebuilt after a checkpoint reorg, independently of this journal.
+
+The supplied keeper unit uses a persistent private StateDirectory and flock to
+prevent duplicate local services. Do not start another copy on another host.
+A separate public heartbeat exposes phase, index lag and pending age only; the
+monitor reads it without credentials. This still requires externally delivered
+alerts and real-host throughput/restore testing. See VPS.md for the host plan.
 
 ## Remaining trust
 

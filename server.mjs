@@ -13,6 +13,7 @@ import {RELEASE_STATUS,assertLiveReleaseAllowed} from './lib/release.mjs';
 import {validateGovernance} from './lib/governance.mjs';
 import {createLiveCache} from './lib/live-cache.mjs';
 import {createNftCatalog,validTokenId} from './lib/nft-catalog.mjs';
+import {ChainIndex} from './lib/chain-index.mjs';
 const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
 assertLiveReleaseAllowed(arenaAddress);
 const root=import.meta.dirname;
@@ -45,29 +46,26 @@ const nftCatalog=createNftCatalog({seedNfts:nfts,cacheDir:resolve(stateDir,'nft-
 const treasury='0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D';
 const revealerAddress=live?await arena.revealer():process.env.ARENA_REVEALER_ADDRESS || '';
 const governanceAddress=live?await arena.owner():process.env.ARENA_GOVERNANCE_ADDRESS || '';
+let liveIndex;
 if(live){
   const [token,collection,feeRecipient]=await Promise.all([arena.chog(),arena.collection(),arena.treasury()]);
   if(token.toLowerCase()!==CHOG_TOKEN.toLowerCase() || collection.toLowerCase()!==COLLECTION.toLowerCase() || feeRecipient.toLowerCase()!==treasury.toLowerCase())throw Error('Arena assets or treasury do not match this application');
   await validateGovernance(provider,governanceAddress);
+  const fromBlock=Number(process.env.ARENA_FROM_BLOCK);
+  if(!/^\d+$/.test(process.env.ARENA_FROM_BLOCK || '') || fromBlock<1 || await provider.getCode(arenaAddress,fromBlock-1)!=='0x' || await provider.getCode(arenaAddress,fromBlock)==='0x')throw Error('Set ARENA_FROM_BLOCK to the actual arena deployment block');
+  liveIndex=new ChainIndex(resolve(stateDir,'chain-index.sqlite'),{chainId:CHAIN_ID,arena:arenaAddress,fromBlock,collection:COLLECTION});
 }
 const port=Number(process.env.PORT || 3000);
 function publicRound(r){if(!r)return null;const {entries,holderEntries,betCounts,usedNfts,walletBanks,...rest}=r;return rest;}
 const readLive=createLiveCache(async()=>{
-  const [countRound,activeRevealer,governanceAddress,cutoff]=await Promise.all([arena.currentRoundId(),arena.revealer(),arena.owner(),arena.interruptedThroughRound()]);
-  const current=Number(countRound),interruptedThroughRound=Number(cutoff);
-  const history=[],rounds=[],challenges=[];const points={},losses={};
-  for(let id=1;id<=current;id++) {
-    const r=await arena.getRound(id);
-    const item={id,nftA:Number(r.nftA),nftB:Number(r.nftB),endsAt:Number(r.endsAt)*1000,unlockAt:Number(r.unlockAt)*1000,revealEndsAt:Number(r.revealEndsAt)*1000,beaconRound:Number(r.beaconRound),committedCount:Number(r.committedCount),revealedCount:Number(r.revealedCount),totalCommitted:r.totalCommitted.toString(),protocolVersion:7,interrupted:!r.settled && id<=interruptedThroughRound,votesA:Number(r.votesA),votesB:Number(r.votesB),poolA:r.poolA.toString(),poolB:r.poolB.toString(),settled:r.settled,winner:Number(r.winner),refund:r.refund,cancelled:r.cancelled};
-    if(item.settled){history.push(item);if(!item.cancelled && item.winner!==2){const token=item.winner===0?item.nftA:item.nftB,loser=item.winner===0?item.nftB:item.nftA;points[token]=(points[token] || 0)+1;losses[loser]=(losses[loser] || 0)+1;}}
-    if(!item.settled)rounds.push(item);
-  }
-  const count=Number(await arena.challengeCount());
-  const collection=new Contract(COLLECTION,['function ownerOf(uint256) view returns(address)'],provider);
-  for(let id=1;id<=count;id++){const c=await arena.challenges(id);if(c.closed)continue;let valid=false;try{valid=(await collection.ownerOf(c.tokenId)).toLowerCase()===c.creator.toLowerCase();}catch{}
-    challenges.push({id,creator:c.creator,tokenId:Number(c.tokenId),createdAt:Number(c.createdAt)*1000,roundId:Number(c.roundId),closed:false,valid});}
-  return {rounds,challenges,history,points,losses,draws:drawTotals(history),activeRevealer,governanceAddress,serviceSuspended:/^0x0+$/.test(activeRevealer)};
+  const [activeRevealer,governanceAddress,cutoff]=await Promise.all([arena.revealer(),arena.owner(),arena.interruptedThroughRound()]);
+  const sync=await liveIndex.sync({provider,arena});
+  await liveIndex.snapshots(arena,20);
+  const data=liveIndex.view(Number(cutoff));
+  if(sync.backlogBlocks || data.incompleteSnapshots)throw Object.assign(Error('Synchronizing confirmed match data. Please retry shortly.'),{code:'INDEX_CATCHUP'});
+  return {...data,index:sync,activeRevealer,governanceAddress,serviceSuspended:/^0x0+$/.test(activeRevealer)};
 });
+const indexTimer=live?setInterval(()=>readLive(true).catch(()=>{}),1000):null;
 const demoDrand=drandClient();let tickInFlight;
 function tick(){
   if(tickInFlight)return tickInFlight;
@@ -119,13 +117,19 @@ const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connec
       if(!live)await tick();
       if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',release:RELEASE_STATUS,collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,revealerAddress,governanceAddress,arenaAddress,feeBps:FEE_BPS,minStake:MIN_STAKE.toString(),nfts,abi:artifact.abi,demoFastRounds,privacy:'timelock'});
       if(req.method==='GET' && url.pathname==='/api/deployment')return RELEASE_STATUS.realFundsEnabled?json(res,200,artifact):json(res,403,{error:RELEASE_STATUS.message});
+      if(live && req.method==='GET' && url.pathname==='/api/wallet-rounds'){
+        await readLive();const before=Number(url.searchParams.get('before') || Number.MAX_SAFE_INTEGER);
+        if(!Number.isSafeInteger(before)||before<1)return json(res,400,{error:'Invalid history cursor'});
+        const ids=liveIndex.walletRounds(url.searchParams.get('account'),before,51);
+        return json(res,200,{ids:ids.slice(0,50),hasMore:ids.length>50});
+      }
       if(req.method==='GET' && url.pathname==='/api/state') {
         const data=live?await readLive(url.searchParams.get('fresh')==='1'):{rounds:state.rounds.filter(r=>!r.settled).map(publicRound),challenges:state.challenges.filter(c=>!c.closed).map(c=>({...c,valid:state.ownership[c.tokenId]===c.creator})),history:state.rounds.filter(r=>r.settled).map(publicRound),points:state.points,losses:state.losses,draws:state.draws};
         const selected=Number(url.searchParams.get('round'));
         const round=url.searchParams.get('round')?[...data.rounds,...data.history].find(r=>r.id===selected) || null:data.rounds.at(-1) || null;
         const account=live?null:demo.user(state,id);
         const claims=live?[]:demo.claimsFor(state,id),privateRound=live?null:state.rounds.find(r=>r.id===round?.id);
-        return json(res,200,{...data,round,account,claims,persona,ownedTokens:live?[]:demo.ownedTokens(state,id),betCount:live?0:demo.nextBetNonce(privateRound,id),usedNfts:live?[]:Object.keys(privateRound?.usedNfts || {}).map(Number),entry:privateRound?.entries[id] || null,serverNow:Date.now()});
+        return json(res,200,{...data,history:live?data.history.slice(-8):data.history,round,account,claims,persona,ownedTokens:live?[]:demo.ownedTokens(state,id),betCount:live?0:demo.nextBetNonce(privateRound,id),usedNfts:live?[]:Object.keys(privateRound?.usedNfts || {}).map(Number),entry:privateRound?.entries[id] || null,serverNow:Date.now()});
       }
       if(req.method==='POST'){
         if(live)return json(res,405,{error:'Live transactions must be signed in your wallet'});
@@ -164,9 +168,9 @@ const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connec
     const bytes=await readFile(file);
     res.writeHead(200,{'content-type':mime[extname(file)] || 'application/octet-stream','x-content-type-options':'nosniff','content-security-policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://rpc.monad.xyz; frame-ancestors 'none'"});
     res.end(bytes);
-  }catch(error){json(res,error.code==='ENOENT'?404:400,{error:error.code==='ENOENT'?'File not found':error.shortMessage || error.message});}
+  }catch(error){json(res,error.code==='INDEX_CATCHUP'?503:error.code==='ENOENT'?404:400,{error:error.code==='ENOENT'?'File not found':error.shortMessage || error.message});}
 });
 server.maxHeadersCount=100;server.maxRequestsPerSocket=100;
 server.listen(port,process.env.HOST || '127.0.0.1',()=>console.log(`Chog: Beauty Arena — http://localhost:${server.address().port} (${live?'LIVE':'DEMO'})`));
-function shutdown(){if(keeperTimer)clearInterval(keeperTimer);catalogProvider?.destroy();provider?.destroy();server.close(()=>{db.close();process.exit(0);});}
+function shutdown(){if(keeperTimer)clearInterval(keeperTimer);if(indexTimer)clearInterval(indexTimer);catalogProvider?.destroy();provider?.destroy();server.close(()=>{liveIndex?.close();db.close();process.exit(0);});}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);

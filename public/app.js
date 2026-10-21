@@ -9,6 +9,7 @@ import {holderTokensHash,normalizeHolderTokens,MAX_HOLDER_BATCH} from '../lib/ho
 import {discoverOwnedChogs,ownershipAbi} from '../lib/wallet-nfts.mjs';
 let config,state,signer,address='',holder=false,busy=false,owned=[],displayedPhase=null;
 let walletEpoch=0,ownershipLoading=false,ownershipError='';
+let claimWallet='',claimBefore=Number.MAX_SAFE_INTEGER,claimHasMore=false,claimLast=0;
 const metadataQueue=[],metadataPending=new Set(),metadataFailed=new Set();let metadataWorkers=0,nftRenderTimer;
 const nftSelections=new Map(),holderSelections=new Map();
 const $=s=>document.querySelector(s);
@@ -48,7 +49,16 @@ async function refresh(){
     }catch(error){if(!currentWallet())return;owned=[];holder=false;ownershipError=error.shortMessage || error.message;}
     ownershipLoading=false;
     if(state.round){state.betCount=Number(await contract().betCount(state.round.id,address));const usage=await Promise.all(owned.map(id=>contract().unstakedVoteUsed(state.round.id,id)));state.usedNfts=owned.filter((_,i)=>usage[i]);}
-    state.claims=[];for(const r of state.history){const p=await contract().payoutBreakdown(r.id,address);if(p.amount>0n)state.claims.push({id:r.id,gross:p.gross.toString(),fee:p.fee.toString(),amount:p.amount.toString()});}
+    if(claimWallet!==currentAddress){claimWallet=currentAddress;claimBefore=Number.MAX_SAFE_INTEGER;}
+    const page=await api('wallet-rounds?account='+encodeURIComponent(currentAddress)+'&before='+claimBefore);
+    if(!currentWallet())return;
+    claimHasMore=page.hasMore;claimLast=page.ids.at(-1)||0;
+    const readContract=new Contract(config.arenaAddress,config.abi,currentSigner),claims=[];
+    for(let offset=0;offset<page.ids.length;offset+=4){
+      const batch=await Promise.all(page.ids.slice(offset,offset+4).map(async id=>({id,p:await readContract.payoutBreakdown(id,currentAddress)})));
+      if(!currentWallet())return;for(const {id,p}of batch)if(p.amount>0n)claims.push({id,gross:p.gross.toString(),fee:p.fee.toString(),amount:p.amount.toString()});
+    }
+    state.claims=claims;
   }
   render();
 }
@@ -152,6 +162,12 @@ function rewards(){
   $('#content').insertAdjacentHTML('beforeend',`<section class="history"><h3>Your rewards</h3>${state.claims.map(c=>`<div class="history-item"><span>Round #${c.id}${c.betNonce===undefined?' · ':' · Bet #'+(c.betNonce+1)+' · '}${money(c.gross)} − ${money(c.fee)} fee = ${money(c.amount)} CHOG</span><button data-claim="${c.id}" data-bet-nonce="${c.betNonce ?? 0}">Claim reward</button></div>`).join('')}</section>`);
   for(const b of document.querySelectorAll('[data-claim]'))b.onclick=()=>run(async()=>{const id=Number(b.dataset.claim),betNonce=Number(b.dataset.betNonce);if(config.mode==='demo')await api('claim',{id,betNonce});else await(await contract().claim(id)).wait();toast('Reward claimed');});
 }
+function rewardPages(){
+  if($('#reward-pages') || config.mode!=='live' || !address || (!claimHasMore && claimBefore===Number.MAX_SAFE_INTEGER))return;
+  $('#content').insertAdjacentHTML('beforeend',`<div class="utility-row" id="reward-pages"><span>Rewards are checked in pages of 50 of your completed battles.</span>${claimHasMore?'<button id="older-rewards">Check earlier rewards</button>':''}${claimBefore!==Number.MAX_SAFE_INTEGER?'<button id="latest-rewards">Latest rewards</button>':''}</div>`);
+  if($('#older-rewards'))$('#older-rewards').onclick=()=>run(async()=>{claimBefore=claimLast;});
+  if($('#latest-rewards'))$('#latest-rewards').onclick=()=>run(async()=>{claimBefore=Number.MAX_SAFE_INTEGER;});
+}
 function renderLobby(){
   $('#content').innerHTML=`<section class="hero"><div><div class="eyebrow">HOLDER VS HOLDER</div><h1>Your Chog.<br><em>Your challenge.</em></h1><p class="intro">Create a request with your NFT. Another holder brings theirs.<br>Once accepted, the community has ${battleWindow()} to vote and place bets.</p></div><a class="button-link" href="/profile">Create a battle</a></section><div class="utility-row"><span>One NFT · one open request or active battle at a time</span>${demoWallet()}</div><section class="lobby-section"><div class="section-title"><h2>Open battle requests</h2><span>${state.challenges.length} waiting</span></div>${requests(state.challenges)}</section><section class="lobby-section"><div class="section-title"><h2>Active battles</h2><span>${state.rounds.length} ongoing</span></div>${matches(state.rounds)}</section>${state.history.length?`<section class="lobby-section"><h2>Recent contests</h2>${matches(state.history.slice(-8).reverse())}</section>`:''}`;
   if(state.serviceSuspended)$('#content').insertAdjacentHTML('afterbegin','<p class="empty">Battle starts and betting are paused. Existing claims remain available.</p>');
@@ -193,7 +209,7 @@ function board(){
 function render(){
   for(const totals of [state.points,state.losses,state.draws])for(const id of Object.keys(totals || {}))if(totals[id]>0)nft(Number(id));
   const focused=document.activeElement,focusId=focused?.id;
-  queueMicrotask(()=>{enhanceNftImages();if(focusId && document.activeElement===document.body)document.getElementById(focusId)?.focus({preventScroll:true});});
+  queueMicrotask(()=>{enhanceNftImages();if(['/', '/profile'].includes(location.pathname))rewardPages();if(focusId && document.activeElement===document.body)document.getElementById(focusId)?.focus({preventScroll:true});});
   const values={};for(const e of document.querySelectorAll('input,select'))if(e.id)values[e.id]=e.value;
   if(config.mode==='demo')$('#wallet').textContent='Demo profile';
   $('#mode').innerHTML=config.mode==='demo'?`<strong>DEMO MODE</strong> Fictional CHOG · ${config.demoFastRounds?'2-minute test rounds':'24-hour rounds'} · choices encrypted until betting closes`:'<strong>LIVE · MONAD</strong> Choices encrypted until betting closes · wallet addresses and bet amounts are public';

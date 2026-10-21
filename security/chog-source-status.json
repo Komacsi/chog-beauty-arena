@@ -1,0 +1,33 @@
+{
+  "checkedOn": "2026-10-21",
+  "timezone": "Europe/Moscow",
+  "chainId": 143,
+  "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+  "implementation": "0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8",
+  "implementationCodeHash": "0x6dda419a8059dd56106bc3bc80bb22ffbe6e5a6f37bf42bf3a655a843e341c26",
+  "unchangedFromRecordedAssetSnapshot": true,
+  "sourcify": {
+    "url": "https://sourcify.dev/server/v2/contract/143/0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8?fields=all",
+    "httpStatus": 404,
+    "match": null
+  },
+  "explorer": {
+    "url": "https://monadscan.com/address/0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8#code",
+    "httpStatus": 200,
+    "verifiedSourceRetrieved": false
+  },
+  "bytecodeMetadata": {
+    "cid": "QmVZjs5h5rhtLoV82CyLhVbL24jNNs3tbokRkhdpxcqcDU",
+    "sha256": "6b5c2fff3a467d895d2f92a15ff58984907d211af7c7aa2c1dae5365cdaa828f",
+    "solcVersionBytes": "00081c",
+    "fetchResults": [
+      {"gateway": "ipfs.filebase.io", "result": "timeout"},
+      {"gateway": "gateway.pinata.cloud", "httpStatus": 403},
+      {"gateway": "ipfs.io", "httpStatus": 429},
+      {"gateway": "dweb.link", "httpStatus": 429}
+    ],
+    "retrievedAndHashVerified": false
+  },
+  "transactionsSent": 0,
+  "limitations": "Gateway/network failures do not establish that source is unavailable elsewhere. No matching verified source was obtained in this check. Administrative powers and implementation behavior are not fully audited; SEC-04 remains open."
+}

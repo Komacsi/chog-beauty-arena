@@ -9,6 +9,7 @@ User=chogmonitor
 Group=chogmonitor
 WorkingDirectory=/opt/chog-arena
 EnvironmentFile=/etc/chog-arena/public.env
+Environment=KEEPER_HEALTH_PATH=/run/chog-keeper-health/status.json
 ExecStart=/usr/bin/node scripts/monitor.mjs
 NoNewPrivileges=true
 PrivateTmp=true

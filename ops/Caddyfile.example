@@ -1,0 +1,8 @@
+# Replace with the chosen domain and point its DNS to the VPS first.
+arena.example.com {
+    request_body {
+        max_size 16KB
+    }
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:3000
+}

@@ -15,7 +15,7 @@ for(const dir of ['lib','public','artifacts'])await cp(resolve(root,dir),resolve
 await mkdir(resolve(target,'data'));
 await copyFile(resolve(root,'data/collection.json'),resolve(target,'data/collection.json'));
 await mkdir(resolve(target,'scripts'));
-for(const file of ['demo.mjs','keeper.mjs','monitor.mjs','governance.mjs','audit.mjs'])await copyFile(resolve(root,'scripts',file),resolve(target,'scripts',file));
+for(const file of ['demo.mjs','keeper.mjs','monitor.mjs','governance.mjs','audit.mjs','backup-sqlite.mjs'])await copyFile(resolve(root,'scripts',file),resolve(target,'scripts',file));
 const installed=await exec(process.execPath,[process.env.npm_execpath,'ci','--omit=dev','--ignore-scripts','--no-audit','--prefer-offline','--maxsockets=1'],{cwd:target,windowsHide:true,maxBuffer:2*1024*1024});process.stdout.write(installed.stdout);
 for(const pkg of Object.keys(JSON.parse(await readFile(resolve(root,'package.json'),'utf8')).devDependencies)){
   try{await access(resolve(target,'node_modules',pkg));}catch{continue;}throw Error('Development package leaked into runtime: '+pkg);

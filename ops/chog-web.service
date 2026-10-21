@@ -1,0 +1,35 @@
+[Unit]
+Description=Chog Arena website and public event index
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=chogweb
+Group=chogweb
+WorkingDirectory=/opt/chog-arena
+EnvironmentFile=/etc/chog-arena/public.env
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+StateDirectory=chog-web
+StateDirectoryMode=0700
+Environment=ARENA_STATE_DIR=/var/lib/chog-web
+ExecStart=/usr/bin/node server.mjs
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+TimeoutStopSec=45
+
+[Install]
+WantedBy=multi-user.target
