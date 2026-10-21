@@ -1,10 +1,12 @@
 # VPS launch runbook
 
-Prepared 21 October 2026. The operator's Ubuntu 24.04 VPS now runs a separate,
-closed staging copy; see security/vps-staging.json. There is no domain/public
-HTTPS or live arena/keeper yet. The live release guard remains enabled.
+Updated 22 October 2026. The Ubuntu 24.04 VPS runs the public HTTPS API for the
+Netlify fictional demo; the original SSH staging listener also remains available.
+The keeper's encrypted keystore and owner-entered password are installed root-only.
+No live arena is deployed and keeper remains inactive. The live release guard
+remains enabled. See security/netlify-staging.json and security/keeper-credentials.json.
 
-## Current closed staging
+## Original closed staging (retained alongside the public API)
 
 The app listens on 127.0.0.1:3000 and Caddy explicitly binds 127.0.0.1:8080.
 A Caddy site address alone is not an interface restriction: use the bind directive
@@ -110,7 +112,9 @@ The demo at localhost:3104 uses its own directory and must not be migrated/reset
 
 Netlify frontend and the free sslip.io HTTPS API are now published; no purchased
 domain is required. See NETLIFY.md. Still needed: alert destination, secure
-on-server keeper credential setup, measured live throughput and remaining release
-conditions. No real arena has been deployed.
+measured live throughput and remaining release conditions. On-server keeper
+credential setup is complete (security/keeper-credentials.json). No real arena
+has been deployed. The read-only deployment estimate is recorded separately in
+security/deployment-preflight.json; it does not authorize deployment.
 No password or seed phrase is needed in chat.
 Live asset verification and measured host tests remain launch conditions.

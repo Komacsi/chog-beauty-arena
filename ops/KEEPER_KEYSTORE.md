@@ -67,3 +67,10 @@ control. This still does not enable/start the keeper or deploy the arena.
 The helper's disposable test covers an actual Unicode-password unlock, wrong
 password, correct password for a wrong keeper address, exclusive file creation,
 preserved contents on overwrite rejection and POSIX 0600 permissions.
+
+On 22 October 2026 (Moscow), the owner completed this terminal step. Read-only
+SSH checks found both files owned by root:root with mode 0600. The agent did not
+read the password or repeat decryption. See security/keeper-credentials.json.
+The web service remains active and keeper inactive: no arena address/deployment
+block is configured and the live-release guard remains closed. Do not repeat the
+password helper: it intentionally refuses to overwrite the installed file.
