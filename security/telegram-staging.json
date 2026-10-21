@@ -1,0 +1,54 @@
+{
+  "checkedOn": "2026-10-22",
+  "timezone": "Europe/Moscow",
+  "host": "72.56.98.23",
+  "ownerSelectedTelegram": true,
+  "ownerReceivedPairingTest": true,
+  "deliveryEvidence": "Owner supplied a screenshot of the setup helper's explicit test notification.",
+  "credential": {
+    "path": "/etc/chog-arena/telegram.json",
+    "owner": "root",
+    "group": "root",
+    "mode": "0600",
+    "contentsReadByAgent": false
+  },
+  "deployment": {
+    "baseRelease": "/opt/chog-releases/netlify-20261021T213153Z",
+    "release": "/opt/chog-releases/telegram-20261021T231121Z",
+    "backup": "/var/backups/chog-telegram/20261021T231121Z",
+    "notificationSourceCommit": "67bcaff29d881dc5ca90035d52e8bd39b7c5ec92",
+    "monitorScriptSha256": "d7756e8cee2d83c31d95237c6efa9efa1f00e8b8146e0a9962d88304e9720009",
+    "telegramModuleSha256": "c8a953eef4f022687f4b6751464231dd9d2f98be84c5d6242dfa3baae6e86d47",
+    "installerSha256": "eceb2bcba27e2ca3e20a07954bdb45bf865b82c5cf2c13e252340c6aa01f45c9",
+    "nodePath": "/usr/local/bin/node",
+    "shellSyntaxPassed": true,
+    "installedSystemdUnitValidationPassed": true,
+    "keeperActive": false,
+    "keeperEnabled": false,
+    "monitorActive": false,
+    "monitorTimerEnabled": false,
+    "webActive": true
+  },
+  "acceptance": {
+    "netlifyConfigStatus": 200,
+    "mode": "demo",
+    "realFundsEnabled": false,
+    "arenaAddressConfigured": false,
+    "deploymentApiStatus": 403,
+    "stateApiStatus": 200,
+    "stateCacheControl": "no-store",
+    "publicBackendConfigStatus": 200,
+    "roundsRequestsOwnershipRecordsAndExistingUsersPreserved": true,
+    "vpsRounds": 0,
+    "vpsRequests": 1,
+    "localOriginalDemoTouched": false,
+    "restartProbe": "First loopback probe preceded listener readiness; its configured retry succeeded. Subsequent public API checks passed."
+  },
+  "transactionsSent": 0,
+  "limitations": [
+    "Setup-helper delivery is confirmed; an alert from the running isolated monitor has not been exercised.",
+    "The monitor timer remains disabled until a real arena and release readiness conditions exist. No false bootstrap alarm was sent.",
+    "A same-VPS Telegram sender cannot report total host/network loss. Independent external monitoring is still required.",
+    "No matching CHOG implementation source verification, mainnet reveal-throughput test or real-funds release. SEC-03/04 remain open."
+  ]
+}

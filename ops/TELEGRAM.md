@@ -57,3 +57,24 @@ Tests use fake tokens/transport only. They cover exact private-chat pairing,
 exclusive 0600 config, deduplication across independent calls, reminders, recovery,
 API/network failure retry, sanitized errors, bounded messages and unknown-field
 exclusion. They do not claim actual delivery to the owner's Telegram.
+
+## Installed state, 22 October 2026
+
+The owner received the helper's test notification and supplied a screenshot.
+Read-only SSH metadata checks confirmed the Telegram config as root:root 0600;
+its contents were not read by the agent. This proves setup delivery, not a live
+monitor alert or healthy keeper.
+
+ops/configure-telegram.sh stages only the already-reviewed notification module,
+monitor script and service template. It validates credential metadata without
+reading contents, requires inactive services/a disabled timer and a closed release
+guard, takes a consistent private SQLite backup, creates a new root-owned release,
+substitutes the actual Node path, validates the unit and restarts only the demo web
+service. A failure during activation rolls back the unit/release. It never starts
+monitor/keeper, reads signing files or changes financial release settings.
+
+The patch is installed at /opt/chog-releases/telegram-20261021T231121Z with backup
+/var/backups/chog-telegram/20261021T231121Z. Installed code hashes matched, systemd
+validation passed, the website/API responded in demo mode with live deployment
+rejected, and game records/existing users matched the backup. Both keeper and the
+monitor timer remain disabled/inactive. See security/telegram-staging.json.

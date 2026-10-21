@@ -154,5 +154,7 @@ and SEC-03/04 are not waived by a successful estimate.
 
 Telegram was selected for operational alerts. See [ops/TELEGRAM.md](ops/TELEGRAM.md)
 for hidden token entry, private-chat pairing and monitor limits. The prepared sender
-does not sign transactions; actual pairing/delivery and external host monitoring
-are still pending.
+does not sign transactions. The owner received the pairing test; credential
+permissions and installation were verified (security/telegram-staging.json).
+Monitor/keeper remain inactive pending deployment and release checks; actual
+isolated-monitor alerts and external host monitoring remain to be verified.

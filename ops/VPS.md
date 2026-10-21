@@ -110,12 +110,13 @@ The demo at localhost:3104 uses its own directory and must not be migrated/reset
 
 ## Operator inputs still needed
 
-Netlify frontend and the free sslip.io HTTPS API are now published; no purchased
-domain is required. See NETLIFY.md. Telegram was selected for alerts; the sender
-and owner-run token/pairing helper are prepared (TELEGRAM.md). Actual bot pairing,
-received-alert verification, an external host monitor and measured live throughput and remaining release conditions. On-server keeper
-credential setup is complete (security/keeper-credentials.json). No real arena
-has been deployed. The read-only deployment estimate is recorded separately in
-security/deployment-preflight.json; it does not authorize deployment.
-No password or seed phrase is needed in chat.
-Live asset verification and measured host tests remain launch conditions.
+Netlify frontend and the free sslip.io HTTPS API are published; no purchased
+domain is required. See NETLIFY.md. The owner received the Telegram pairing test,
+and the root-only config and installed notification patch were verified
+(TELEGRAM.md; security/telegram-staging.json). Keeper credentials are also ready
+(security/keeper-credentials.json). Monitor and keeper remain disabled/inactive.
+
+Still needed: a real arena, actual isolated-monitor alert verification, independent
+external host monitoring, measured live throughput and remaining release conditions.
+The read-only estimate in security/deployment-preflight.json does not authorize
+deployment. No password, bot token or seed phrase is needed in chat.
