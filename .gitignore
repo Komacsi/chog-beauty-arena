@@ -3,6 +3,7 @@ secrets/
 *.keystore.json
 *.password
 node_modules/
+__pycache__/
 dist/
 data/*.sqlite*
 data/import-errors.json

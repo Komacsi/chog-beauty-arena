@@ -24,6 +24,7 @@ jobs:
       - run: python3 -c "import ast, pathlib; ast.parse(pathlib.Path('scripts/host-preflight.py').read_text())"
       - run: npm run build:netlify
       - run: npm test
+      - run: python3 -m unittest discover -s test-support -p test_keeper_password.py
       - run: npm run build:runtime
       - run: node scripts/check-runtime.mjs dist/runtime
       - run: npm run --silent audit:security
