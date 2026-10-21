@@ -78,3 +78,12 @@ The patch is installed at /opt/chog-releases/telegram-20261021T231121Z with back
 validation passed, the website/API responded in demo mode with live deployment
 rejected, and game records/existing users matched the backup. Both keeper and the
 monitor timer remain disabled/inactive. See security/telegram-staging.json.
+
+## Operational test update, 22 October 2026
+
+The actual isolated monitor unit was run once with the intentional no-arena
+MONITOR_FAILED condition. Telegram acknowledged the alert and persisted delivery
+state; expected exit 2 was reset. Human receipt is separate from API acknowledgement.
+The timer remains disabled. Independent HetrixTools API monitoring is installed
+and its controlled DOWN/recovery test completed; see ops/MONITORING.md and
+security/operational-readiness.json. Earlier setup-only evidence above is historical.

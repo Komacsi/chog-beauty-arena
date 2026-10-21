@@ -15,6 +15,7 @@ import {createLiveCache} from './lib/live-cache.mjs';
 import {createNftCatalog,validTokenId,catalogGateways} from './lib/nft-catalog.mjs';
 import {ChainIndex} from './lib/chain-index.mjs';
 import {webOrigins,allowedWebOrigin} from './lib/web-origin.mjs';
+import {serviceHealth} from './lib/service-health.mjs';
 const allowedOrigins=webOrigins(process.env.ARENA_WEB_ORIGINS);
 const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
 assertLiveReleaseAllowed(arenaAddress);
@@ -97,6 +98,10 @@ const json=(res,status,data)=>{res.writeHead(status,{'content-type':'application
 const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connectionsCheckingInterval:1000,maxHeaderSize:16384},async(req,res)=>{
   try{
     const url=new URL(req.url,'http://localhost');
+    if(req.method==='GET' && url.pathname==='/api/health'){
+      const health=await serviceHealth({live,healthPath:process.env.KEEPER_HEALTH_PATH || '/run/chog-keeper-health/status.json'});
+      return json(res,health.status,health.body);
+    }
     const nftRoute=url.pathname.match(/^\/api\/nfts\/(\d+)(\/image)?$/);
     if(nftRoute && req.method==='GET'){
       const tokenId=Number(nftRoute[1]);if(!validTokenId(tokenId))return json(res,400,{error:'Invalid Chog NFT'});

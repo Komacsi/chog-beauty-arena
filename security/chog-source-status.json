@@ -1,5 +1,5 @@
 {
-  "checkedOn": "2026-10-21",
+  "checkedOn": "2026-10-22",
   "timezone": "Europe/Moscow",
   "chainId": 143,
   "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
@@ -21,13 +21,51 @@
     "sha256": "6b5c2fff3a467d895d2f92a15ff58984907d211af7c7aa2c1dae5365cdaa828f",
     "solcVersionBytes": "00081c",
     "fetchResults": [
-      {"gateway": "ipfs.filebase.io", "result": "timeout"},
-      {"gateway": "gateway.pinata.cloud", "httpStatus": 403},
-      {"gateway": "ipfs.io", "httpStatus": 429},
-      {"gateway": "dweb.link", "httpStatus": 429}
+      {
+        "gateway": "ipfs.filebase.io",
+        "result": "timeout"
+      },
+      {
+        "gateway": "gateway.pinata.cloud",
+        "httpStatus": 403
+      },
+      {
+        "gateway": "ipfs.io",
+        "httpStatus": 429
+      },
+      {
+        "gateway": "dweb.link",
+        "httpStatus": 429
+      },
+      {
+        "gateway": "cloudflare-ipfs.com",
+        "result": "local transport error; no content obtained"
+      },
+      {
+        "gateway": "gateway.ipfs.io",
+        "httpStatus": 403
+      },
+      {
+        "gateway": "w3s.link",
+        "httpStatus": 403
+      }
     ],
-    "retrievedAndHashVerified": false
+    "retrievedAndHashVerified": false,
+    "delegatedProviderLookup": {
+      "endpoint": "https://delegated-ipfs.dev/routing/v1/providers/QmVZjs5h5rhtLoV82CyLhVbL24jNNs3tbokRkhdpxcqcDU",
+      "httpStatus": 200,
+      "providersReturned": 0,
+      "limitation": "This one routing response does not establish global unavailability."
+    }
   },
   "transactionsSent": 0,
-  "limitations": "Gateway/network failures do not establish that source is unavailable elsewhere. No matching verified source was obtained in this check. Administrative powers and implementation behavior are not fully audited; SEC-04 remains open."
+  "limitations": "Gateway/network failures do not establish that source is unavailable elsewhere. No matching verified source was obtained in this check. Administrative powers and implementation behavior are not fully audited; SEC-04 remains open.",
+  "assetSnapshot": "security/asset-snapshot-20261022.json",
+  "sourcifySimilarity": {
+    "verificationId": "a5bf2a58-9ebc-4515-b6ec-11ea269d6a10",
+    "completedAt": "2026-10-21T23:24:42Z",
+    "result": "no_similar_match_found",
+    "creationMatch": null,
+    "runtimeMatch": null
+  }
 }

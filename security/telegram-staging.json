@@ -46,9 +46,20 @@
   },
   "transactionsSent": 0,
   "limitations": [
-    "Setup-helper delivery is confirmed; an alert from the running isolated monitor has not been exercised.",
-    "The monitor timer remains disabled until a real arena and release readiness conditions exist. No false bootstrap alarm was sent.",
-    "A same-VPS Telegram sender cannot report total host/network loss. Independent external monitoring is still required.",
+    "The actual isolated monitor alert was acknowledged by Telegram; human receipt has not separately been confirmed.",
+    "The monitor timer remains disabled until a real arena and release readiness conditions exist.",
+    "Independent HetrixTools API monitoring is now configured; see security/operational-readiness.json for its limited scope.",
     "No matching CHOG implementation source verification, mainnet reveal-throughput test or real-funds release. SEC-03/04 remain open."
-  ]
+  ],
+  "isolatedMonitorTest": {
+    "intentionalCondition": "MONITOR_FAILED: no arena configured",
+    "realIsolatedSystemdUnitUsed": true,
+    "telegramApiAcknowledged": true,
+    "deliveryDeduplicationStatePersisted": true,
+    "ownerReceiptSeparatelyConfirmed": false,
+    "expectedUnitExitStatus": 2,
+    "failedUnitResetAfterTest": true,
+    "timerRemainsDisabled": true,
+    "keeperCredentialsRead": false
+  }
 }

@@ -188,3 +188,12 @@ keeper, доставка внешних уведомлений, проверка
 игровые записи/пользователи сохранились. Сам monitor пока не запущен без арены: его
 реальное уведомление и внешний монитор VPS ещё нужны (security/telegram-staging.json). См. ops/TELEGRAM.md;
 само наличие кода не закрывает SEC-03.
+
+
+## Operational validation update, 22 October 2026
+
+The isolated monitor unit produced an intentional bootstrap alert; Telegram acknowledged it and delivery state persisted. Its timer remains disabled. Independent HetrixTools monitors the public API health route from three locations with Telegram contact selection. A controlled missing-keyword test transitioned DOWN and back Online without stopping the app. Human receipt is tracked separately. Direct Netlify monitoring was rejected by the service, so frontend availability is not covered. See ops/MONITORING.md and security/operational-readiness.json.
+
+The health-only release preserves demo records and the closed release guard. Live health fails closed on unavailable, malformed, stale or unhealthy keeper heartbeats and exposes no credential or journal content. All 136 local Node tests passed. Eleven durable recovery regressions also passed in an unprivileged, network-isolated VPS unit. The VPS decrypted 32 historical-fixture ballots (mean 106 ms, p95 112 ms) and rejected 1000 malformed entries; this excludes RPC/signing/gas/confirmation throughput and does not close SEC-03.
+
+The fresh asset snapshot at block 115460204 confirms the recorded code hashes. Sourcify's completed similarity search returned no_similar_match_found for the CHOG implementation; additional bounded IPFS gateway and provider lookup attempts returned no verified metadata. This does not prove global source unavailability. No matching source was obtained, so administrative/transfer powers remain incompletely reviewed and SEC-04 stays open. No real transaction was sent. Earlier notes describing all host/alert work as outstanding are superseded only for the specifically tested items above.

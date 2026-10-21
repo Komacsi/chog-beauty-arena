@@ -156,5 +156,7 @@ Telegram was selected for operational alerts. See [ops/TELEGRAM.md](ops/TELEGRAM
 for hidden token entry, private-chat pairing and monitor limits. The prepared sender
 does not sign transactions. The owner received the pairing test; credential
 permissions and installation were verified (security/telegram-staging.json).
-Monitor/keeper remain inactive pending deployment and release checks; actual
-isolated-monitor alerts and external host monitoring remain to be verified.
+The real isolated monitor produced an intentional test alert acknowledged by Telegram.
+Independent HetrixTools API monitoring completed a controlled DOWN/recovery test;
+see [ops/MONITORING.md](ops/MONITORING.md) for scope and limitations. Keeper and
+the monitor timer remain inactive pending deployment and release checks.
