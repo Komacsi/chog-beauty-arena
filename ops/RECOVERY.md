@@ -83,6 +83,9 @@ must not be overridden by a local .env file. Prefer no .env in the deployment
 checkout. The Node runtime must be /usr/bin/node 24+ or update ExecStart.
 
 On Windows, enforce equivalent file ACLs: the POSIX 0600 check is Linux-only.
+For Rabby, the local hidden-input wizard and its limits are documented in
+[KEEPER_KEYSTORE.md](KEEPER_KEYSTORE.md). It validates the exact keeper address,
+creates only encrypted JSON and does not save the password or start a service.
 Use a wallet's encrypted keystore export; never paste production keys into a
 shell command, source, chat or browser frontend. The keystore is unlocked in
 the keeper's memory. This is encrypted storage, **not HSM/non-exportable signing**:
