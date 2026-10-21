@@ -1,0 +1,88 @@
+{
+  "checkedAt": "2026-10-21T21:39:29Z",
+  "localDate": "2026-10-22",
+  "timezone": "Europe/Moscow",
+  "status": "public-fictional-staging",
+  "site": "https://chog-beauty-arena.netlify.app",
+  "siteId": "c5128bd9-80cc-4436-92c3-1f60baf89c14",
+  "deployId": "6ad92ec6e519eb28f544192d",
+  "method": "Netlify Drop: checked browser-only ZIP; Git auto-deploy not connected",
+  "plan": "Free",
+  "monthlyCreditLimit": 300,
+  "paymentMethodAdded": false,
+  "sourceCommit": "94a29f1c51cf1a4f429a739e91767ff5139a93cd",
+  "sourceTree": "446832d9e9edd927216b5fd45aafcab2940fd486",
+  "artifactSha256": "b5c7e6fcd450f65dc7a809e4836423629dc0f97bf309dd2169346fcfe13bfe9d",
+  "api": "https://chog-api.72-56-98-23.sslip.io",
+  "apiOriginAllowlist": [
+    "https://chog-beauty-arena.netlify.app"
+  ],
+  "vpsRelease": "/opt/chog-releases/netlify-20261021T213153Z",
+  "backup": "/var/backups/chog-netlify/20261021T213153Z",
+  "ownerApprovedPublicApi": true,
+  "publicPorts": [
+    80,
+    443
+  ],
+  "appListener": "127.0.0.1:3000",
+  "sshStagingListener": "127.0.0.1:8080",
+  "tls": {
+    "issuer": "Let's Encrypt",
+    "verifiedWithoutBypass": true
+  },
+  "realFundsEnabled": false,
+  "arenaAddress": "",
+  "keeperActive": false,
+  "monitorActive": false,
+  "keeperCredentialsConfigured": false,
+  "checks": {
+    "anonymousPages200": [
+      "/",
+      "/profile",
+      "/leaderboard"
+    ],
+    "apiConfig200": true,
+    "apiState200": true,
+    "apiJsonCacheControl": "no-store",
+    "apiSetsCookie": true,
+    "browser": [
+      "profile with five holder NFTs",
+      "all five sample images loaded (naturalWidth > 0)",
+      "NFT-card selection creates request for CHOG #1885",
+      "cancel request releases NFT",
+      "Holder A/B switches distinct profiles via same-origin proxied POST/cookie",
+      "leaderboard loads and cancelled request adds no records",
+      "no browser warning/error logs"
+    ],
+    "directApiOriginStatus": {
+      "https://chog-beauty-arena.netlify.app": 200,
+      "https://evil.netlify.app": 403,
+      "null": 403
+    },
+    "spoofedForwardedHostDoesNotGrantAccess": true,
+    "oversized20000BytePostStatus": 400,
+    "publicBackendRootStatus": 404,
+    "staticHashesFromExternalVpsMatchArtifact": {
+      "/nfts/299.webp": "317afeb85e62d15c1ccf83e982d6cf45e0493dba459d087c982b6b3d8ff8d283",
+      "/bundle.js": "2376e0af13608f010951e573f6855bcf33f4487005172f5a473ded0a2020787a",
+      "/vendor/ethers.js": "b016b0c3898c78fd8156466eb1ff1f42c9df951c2f0d64c9bdf799fe745b0a6c"
+    },
+    "originalLocalDemo": {
+      "deepEqual": true,
+      "rounds": 4,
+      "requests": 10,
+      "users": 3
+    },
+    "existingSshStagingReachable": true,
+    "rootOwnedRelease": true,
+    "backupMode": "0600",
+    "publicEnvMode": "0640 root:chog-config"
+  },
+  "limitations": [
+    "Windows CLI timed out fetching three static assets after 30s and one initial state request after 25s. Browser loaded the images and JS with no console errors; external VPS obtained all three assets with matching hashes, and a later Windows state request passed.",
+    "No matching CHOG implementation source obtained; SEC-04 remains open.",
+    "No production keeper credentials, externally delivered alerts, live arena deployment or mainnet reveal throughput test.",
+    "Free Netlify monthly limits can pause the site; free sslip.io is a third-party DNS dependency tied to the VPS IP.",
+    "This is not a full independent security audit or real-funds release."
+  ]
+}

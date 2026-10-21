@@ -1,5 +1,23 @@
 # Netlify frontend with the existing VPS
 
+## Published staging, 22 October 2026
+
+- Site: https://chog-beauty-arena.netlify.app (public, confirmed Free team plan).
+- Site ID: c5128bd9-80cc-4436-92c3-1f60baf89c14.
+- Manual deploy: 6ad92ec6e519eb28f544192d, from the checked browser-only ZIP
+  built from GitHub commit 94a29f1c51cf1a4f429a739e91767ff5139a93cd.
+- API: https://chog-api.72-56-98-23.sslip.io, Let's Encrypt certificate, Caddy.
+- ARENA_WEB_ORIGINS=https://chog-beauty-arena.netlify.app.
+- Release: /opt/chog-releases/netlify-20261021T213153Z; consistent backup/config
+  snapshot: /var/backups/chog-netlify/20261021T213153Z.
+- The owner explicitly approved exposing this API over ports 80/443. App/SQLite
+  stay on loopback; keeper/monitor are inactive and no keeper credentials exist.
+- API/browser/static-asset checks are recorded in security/netlify-staging.json.
+  The original localhost:3104 database and history are unchanged. Real funds remain
+  disabled. This publishes fictional staging, not the real-funds game.
+- This first deploy used Netlify Drop. GitHub auto-deploy is not connected; future
+  browser builds must be manually uploaded to the same project until Git is linked.
+
 The Free Netlify plan hosts only browser assets. The existing VPS keeps the
 Node API, SQLite index/cache and eventual keeper. No Netlify Functions or second
 paid server are needed. The Free plan has monthly usage limits; exhausting them

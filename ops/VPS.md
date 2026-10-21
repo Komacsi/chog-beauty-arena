@@ -108,6 +108,9 @@ The demo at localhost:3104 uses its own directory and must not be migrated/reset
 
 ## Operator inputs still needed
 
-Domain/DNS, alert destination and secure on-server keeper credential setup.
+Netlify frontend and the free sslip.io HTTPS API are now published; no purchased
+domain is required. See NETLIFY.md. Still needed: alert destination, secure
+on-server keeper credential setup, measured live throughput and remaining release
+conditions. No real arena has been deployed.
 No password or seed phrase is needed in chat.
 Live asset verification and measured host tests remain launch conditions.
