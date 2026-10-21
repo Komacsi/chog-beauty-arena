@@ -111,8 +111,9 @@ The demo at localhost:3104 uses its own directory and must not be migrated/reset
 ## Operator inputs still needed
 
 Netlify frontend and the free sslip.io HTTPS API are now published; no purchased
-domain is required. See NETLIFY.md. Still needed: alert destination, secure
-measured live throughput and remaining release conditions. On-server keeper
+domain is required. See NETLIFY.md. Telegram was selected for alerts; the sender
+and owner-run token/pairing helper are prepared (TELEGRAM.md). Actual bot pairing,
+received-alert verification, an external host monitor and measured live throughput and remaining release conditions. On-server keeper
 credential setup is complete (security/keeper-credentials.json). No real arena
 has been deployed. The read-only deployment estimate is recorded separately in
 security/deployment-preflight.json; it does not authorize deployment.

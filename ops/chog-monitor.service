@@ -10,7 +10,12 @@ Group=chogmonitor
 WorkingDirectory=/opt/chog-arena
 EnvironmentFile=/etc/chog-arena/public.env
 Environment=KEEPER_HEALTH_PATH=/run/chog-keeper-health/status.json
+Environment=MONITOR_TELEGRAM=1
+LoadCredential=telegram.json:/etc/chog-arena/telegram.json
+StateDirectory=chog-monitor
+StateDirectoryMode=0700
 ExecStart=/usr/bin/node scripts/monitor.mjs
+TimeoutStartSec=180
 NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true

@@ -151,3 +151,8 @@ parameters, artifact/initcode hashes and a temporary gas quote in
 security/deployment-preflight.json. The proposed deployer is the treasury address
 for simulation only and still needs owner confirmation. No transaction is sent
 and SEC-03/04 are not waived by a successful estimate.
+
+Telegram was selected for operational alerts. See [ops/TELEGRAM.md](ops/TELEGRAM.md)
+for hidden token entry, private-chat pairing and monitor limits. The prepared sender
+does not sign transactions; actual pairing/delivery and external host monitoring
+are still pending.
