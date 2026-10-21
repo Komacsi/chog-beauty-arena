@@ -45,7 +45,11 @@
       "recoveryObserved": true,
       "displayedIncidentStartMoscow": "2026-10-22 02:51",
       "displayedIncidentEndMoscow": "2026-10-22 02:53",
-      "humanTelegramReceiptConfirmed": false
+      "humanTelegramReceiptConfirmed": true,
+      "humanConfirmedEvent": "Owner screenshot confirms both DOWN and UP Telegram messages",
+      "humanRecoveryNotificationReceiptConfirmed": true,
+      "notificationDownMoscow": "2026-10-22 02:51:35",
+      "notificationUpMoscow": "2026-10-22 02:53:40"
     },
     "frontendMonitoring": "Direct Netlify website monitor was rejected by the provider: This website cannot be monitored by our platform. No frontend monitor was created."
   },
