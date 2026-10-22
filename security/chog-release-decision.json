@@ -1,0 +1,20 @@
+{
+  "recordedAt": "2026-10-22T20:00:06Z",
+  "operatorDate": "2026-10-22",
+  "timezone": "Europe/Moscow",
+  "riskId": "CHOG-SOURCE",
+  "status": "accepted_by_owner",
+  "ownerAnswer": "Да, принимаю этот риск для проверенной реализации CHOG",
+  "scope": "Residual risk of using the exact bytecode-reviewed CHOG implementation without matching verified Solidity source, based on the recorded fork/bytecode evidence and mandatory deployment preflight.",
+  "chainId": 143,
+  "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+  "implementation": "0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8",
+  "implementationCodeHash": "0x6dda419a8059dd56106bc3bc80bb22ffbe6e5a6f37bf42bf3a655a843e341c26",
+  "sourceVerified": false,
+  "requiredCheck": "validateChogAsset before deployment: chain, token/proxy/implementation bytecode, controller/pool, initialized/graduated flags, decimals, recorded block identity",
+  "evidence": ["security/chog-bytecode-review.json", "security/chog-pinned-preflight.json", "security/chog-fork-followup.json", "ops/CHOG_REVIEW.md"],
+  "excludedFromAcceptance": ["actual deployment/signing", "enabling real funds", "remaining SEC-03 operational rehearsal", "remaining SEC-04 deployment verification and real-game rehearsal", "any different implementation/state or full source-verification claim"],
+  "realFundsEnabled": false,
+  "transactionsSigned": 0,
+  "transactionsSent": 0
+}

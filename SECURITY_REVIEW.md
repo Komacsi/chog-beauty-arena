@@ -18,11 +18,11 @@
 | --- | --- | --- |
 | SEC-01: некорректный ciphertext / выборочное раскрытие участником | Исправлено в модели доверенного сервиса | Нераскрытые записи не влияют на результат и возвращаются отдельно; прямое раскрытие участником запрещено. Доверие к сервису описано ниже. |
 | SEC-02: несколько кошельков одного участника | **Принят владельцем проекта** | Каждая NFT — один голос без ставки за бой; только первая CHOG-ставка кошелька добавляет один голос, последующие участвуют в выплатах без голосов. Минимум каждой ставки 5000 CHOG. Не является причиной блокировки запуска. |
-| SEC-03: доступность и масштабирование | Код восстановления добавлен; эксплуатация не проверена | Постоянный индекс, bounded queue, signed transaction journal и nonce recovery проверены локально. Нужны production-нагрузка, мониторинг и внешние уведомления. |
-| SEC-04: внешние активы и готовность окружения | Один fork-снимок прошёл; ограничения остаются | Полный анализ реализации CHOG и реальное тестовое развёртывание ещё нужны. |
+| SEC-03: доступность и масштабирование | Проверены восстановление, нагрузочная модель и доставка уведомлений; live-репетиция остаётся | Владелец принял риск большого наплыва и отказался от расширения мониторинга боёв. Требуется проверка реально подключённого keeper перед открытием средств. |
+| SEC-04: внешние активы и готовность окружения | CHOG проверен по байткоду и fork; риск отсутствия исходников принят владельцем | Точный код и состояние CHOG проверяются preflight. Исходники не верифицированы; реальное тестовое развёртывание/полный цикл ещё нужны. |
 | SEC-05: смена кошелька / доверие API | Исправлено | Перед подписями проверяются кошелёк и сеть; NFT/beacon для шифрования читаются из контракта. |
 
-В RELEASE_STATUS SEC-02 перенесён в acceptedRisks. SEC-03 и SEC-04 остаются условиями готовности live. Trust model — Safe-governed authorized revealer. Guard ограничивает штатное приложение, но не мешает третьим лицам самостоятельно развернуть исходники.
+В RELEASE_STATUS SEC-02 и узкий риск CHOG-SOURCE перенесены в acceptedRisks по прямому решению владельца. SEC-03 и оставшаяся часть SEC-04 остаются условиями готовности live. Trust model — Safe-governed authorized revealer. Guard ограничивает штатное приложение, но не мешает третьим лицам самостоятельно развернуть исходники.
 
 ## SEC-01: некорректный голос больше не отменяет матч
 
@@ -212,3 +212,11 @@ The bounded deployed-bytecode and adversarial local-fork review passed at block 
 This supersedes earlier statements that CHOG administrative/transfer behavior had not been examined: those paths now have bounded bytecode and fork evidence. Matching Solidity/metadata source was still not obtained; sourceVerified remains false, SEC-04 is not fully closed, and SEC-03 plus the real-funds guard are unchanged. No mainnet transaction was sent.
 
 The owner explicitly declined expanding battle monitoring. No such change was made: existing monitoring scans only the latest 200 rounds, so older actionable rounds may not be covered. Existing API/Telegram infrastructure monitoring remains as documented in ops/MONITORING.md.
+
+## CHOG follow-up decision preparation, 22 October 2026
+
+Additional original-source retrieval attempts did not produce matching source, including the creator Curve, public repository branches and the repository referenced in a Beosin report. The Beosin report was not matched to this deployment. See ops/CHOG_REVIEW.md and security/chog-source-followup.json; sourceVerified remains false.
+
+The deployment preflight now rejects anything other than the exact bytecode-reviewed CHOG proxy/implementation and controller/pool/initialized/graduated/18-decimal state. It reads asset state at one recorded block and checks uncached block headers around the reads. It does not continuously monitor battles, defeat a dishonest RPC or prevent a later chain/state change. An actual read-only check passed at block 115700747; a new complete local game fork with real CHOG/NFT passed at 115700762. No mainnet transaction, signer or secret was used. The preflight is an additional safeguard, not source verification or a security proof.
+
+The owner explicitly answered “Да, принимаю этот риск для проверенной реализации CHOG” after being shown the concrete bytecode/fork/preflight alternative and source limitation. Acceptance is recorded as CHOG-SOURCE in RELEASE_STATUS and security/chog-release-decision.json. The narrow source-provenance condition is closed by accepted risk; sourceVerified remains false. This does not close the remaining deployment/rehearsal portion of SEC-04, SEC-03 or enable real funds. The source-verification path remains available if the original author publishes matching inputs. Earlier source-only blocking statements above are historical and superseded by this narrow decision.

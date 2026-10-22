@@ -59,7 +59,7 @@
     }
   },
   "transactionsSent": 0,
-  "limitations": "Matching verified source was not obtained. Bounded deployed-bytecode review and local fork tests passed; this is not full source/compiler verification. SEC-04 remains open for source provenance. See ops/CHOG_REVIEW.md.",
+  "limitations": "Matching verified source was not obtained. Bounded deployed-bytecode and local fork tests passed. The owner accepted the narrow CHOG-SOURCE residual risk for the exact reviewed implementation with mandatory identity/state preflight. sourceVerified remains false. SEC-04 deployment/rehearsal and SEC-03 remain open.",
   "assetSnapshot": "security/asset-snapshot-20261022.json",
   "sourcifySimilarity": {
     "verificationId": "a5bf2a58-9ebc-4515-b6ec-11ea269d6a10",
@@ -74,5 +74,13 @@
     "sourceVerified": false,
     "evidence": "security/chog-bytecode-review.json",
     "scope": "ops/CHOG_REVIEW.md"
+  },
+  "followup": {
+    "retrievalEvidence": "security/chog-source-followup.json",
+    "identityPreflight": "security/chog-pinned-preflight.json",
+    "fullGameFork": "security/chog-fork-followup.json",
+    "sourceVerified": false,
+    "residualRisk": "accepted_by_owner",
+    "decision": "security/chog-release-decision.json"
   }
 }

@@ -2,9 +2,12 @@
 
 The bounded bytecode and local fork review passed at Monad block **115693565**.
 No incompatibility or additional transfer fee was found in the checked paths.
-Matching Solidity source and compiler verification remain unavailable; this is
-not a complete source audit or authorization to enable real funds. SEC-04 remains
-open for that provenance gap. The release guard is unchanged.
+Matching Solidity source and compiler verification remain unavailable. The owner
+explicitly accepted this residual risk for the exact reviewed implementation on
+22 October 2026, after reviewing the bytecode/fork evidence and the new preflight.
+This closes the narrow CHOG source-provenance launch condition by risk acceptance,
+not by source verification. SEC-04's deployment rehearsal remains open and real
+funds stay disabled. See security/chog-release-decision.json.
 
 ## Identity and scope
 
@@ -73,3 +76,47 @@ issuer economics or undiscovered paths. Original metadata/source retrieval remai
 unresolved as recorded in [source status](../security/chog-source-status.json).
 Do not label this token source-verified or bypass `lib/release.mjs` based on this
 report. Recheck code hashes and relevant state before a real deployment.
+
+## Follow-up and concrete release choice
+
+On 22 October a second bounded retrieval attempt also checked the creating Curve
+contract on MonadScan and Sourcify. Its source was not verified either. Four IPFS
+gateways from the VPS returned 403 or timed out. Other public branches of
+Naddotfun/contracts contained older constructor-based tokens with a different
+interface; they cannot verify this runtime. A [Beosin report](https://beosin.com/audits/Nad.fun_202507081815.pdf)
+references Naddotfun/contract-v2 and named commits, but that repository/source
+returned 404 through the available GitHub access. The report has not been matched
+to this deployed implementation and is not counted as its audit. Retrieval
+results are in security/chog-source-followup.json. None of these failures proves
+that the original author cannot provide the matching source.
+
+The project now provides `validateChogAsset` in lib/chog-asset.mjs. The deployment
+preflight calls it **before** constructing/estimating the deployment. It pins the
+exact 45-byte proxy and implementation hash above, chain 143, controller/pool,
+initialized/graduated bytes and decimals=18. All asset reads use one block number;
+uncached header reads reject an observed hash change around the snapshot. Missing
+or malformed data fails the check. RPC honesty and changes after this snapshot
+remain assumptions; this is a preflight, not continuous battle monitoring or an
+onchain guarantee. No environment-variable hash override was added.
+
+The real read-only check passed at block 115700747. A fresh local full-game fork
+at block 115700762 passed deposits, repeated bets, NFT votes, a 3–2 result,
+aggregate claims, exact excluded-entry refund and fee withdrawal with zero arena
+balance. Sources: security/chog-pinned-preflight.json and
+security/chog-fork-followup.json. Local regressions reject changed code, token,
+network, controller, pool/flags, decimals, missing evidence and observed reorgs.
+
+To repeat the identity check with a new report path:
+
+```sh
+node scripts/check-chog-asset.mjs artifacts/chog-preflight-NEW.json
+```
+
+The owner chose to accept the documented residual risk of using this exact
+bytecode-reviewed token without source verification. Acceptance is recorded as
+`CHOG-SOURCE` in RELEASE_STATUS, with the identity/state preflight retained. This
+decision concerns only CHOG source provenance: it does not authorize a real
+deployment, waive other operational conditions, change SEC-03, or mark SEC-04's
+real deployment rehearsal complete. `sourceVerified` stays false. The release
+guard stays closed pending the other launch requirements. Obtaining/reproducing
+matching source later can strengthen the evidence without rewriting this history.

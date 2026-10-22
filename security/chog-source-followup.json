@@ -1,0 +1,45 @@
+[
+  {
+    "name": "controller-explorer",
+    "url": "https://monadscan.com/address/0xa7283d07812a02afb7c09b60f8896bcea3f90ace#code",
+    "status": 200,
+    "bytes": 717783,
+    "sha256": "5a7e35d043d70abbb803b3efaef6a72f64910c2906f1cca3ffd70f78ab7fffa3",
+    "sourceMarkers": {
+      "Contract Source Code Verified": false,
+      "Token.sol": false,
+      "editor1": false,
+      "Unverified": true
+    }
+  },
+  {
+    "name": "controller-sourcify",
+    "url": "https://sourcify.dev/server/v2/contract/143/0xa7283d07812a02afb7c09b60f8896bcea3f90ace?fields=all",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "name": "implementation-sourcify",
+    "url": "https://sourcify.dev/server/v2/contract/143/0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8?fields=all",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "name": "metadata-ipfs",
+    "url": "https://ipfs.io/ipfs/QmVZjs5h5rhtLoV82CyLhVbL24jNNs3tbokRkhdpxcqcDU",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "name": "metadata-filebase",
+    "url": "https://ipfs.filebase.io/ipfs/QmVZjs5h5rhtLoV82CyLhVbL24jNNs3tbokRkhdpxcqcDU",
+    "error": "The read operation timed out"
+  },
+  {
+    "name": "metadata-dweb",
+    "url": "https://dweb.link/ipfs/QmVZjs5h5rhtLoV82CyLhVbL24jNNs3tbokRkhdpxcqcDU",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "name": "metadata-pinata",
+    "url": "https://gateway.pinata.cloud/ipfs/QmVZjs5h5rhtLoV82CyLhVbL24jNNs3tbokRkhdpxcqcDU",
+    "error": "The read operation timed out"
+  }
+]

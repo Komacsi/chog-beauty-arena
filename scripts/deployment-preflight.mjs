@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import {resolve} from 'node:path';
 import {validateGovernance} from '../lib/governance.mjs';
 import {RELEASE_STATUS} from '../lib/release.mjs';
+import {validateChogAsset} from '../lib/chog-asset.mjs';
 const root=resolve(import.meta.dirname,'..');
 const addresses={
   token:'0x350035555e10d9afaf1566aaebfced5ba6c27777',
@@ -18,6 +19,7 @@ const request=new FetchRequest('https://rpc.monad.xyz');request.timeout=15000;
 const provider=new JsonRpcProvider(request,undefined,{batchMaxCount:1});
 try{
   if((await provider.getNetwork()).chainId!==143n)throw Error('Wrong chain');
+  const chogAsset=await validateChogAsset(provider,addresses.token);
   const artifactBytes=await readFile(resolve(root,'artifacts/BeautyArena.json'));
   const artifact=JSON.parse(artifactBytes),factory=new ContractFactory(artifact.abi,artifact.bytecode);
   const unsigned=await factory.getDeployTransaction(...Object.values(addresses));
@@ -37,12 +39,13 @@ try{
     checkedAt:new Date().toISOString(),operatorDate:new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),timezone:'Europe/Moscow',chainId:143,observedBlock:block,
     purpose:'Read-only contract-creation estimate. Draft only; no deployment approval or transaction.',
     constructorParameters:addresses,proposedDeployer,deployerConfirmedByOwner:false,
+    chogAsset,
     compilation:{artifactSha256:createHash('sha256').update(artifactBytes).digest('hex'),creationBytecodeKeccak256:keccak256(artifact.bytecode),creationBytecodeBytes:(artifact.bytecode.length-2)/2,unsignedInitcodeKeccak256:keccak256(unsigned.data),unsignedInitcodeBytes:(unsigned.data.length-2)/2,optimizerRuns:200,evmVersion:'shanghai'},
     governance:{...governance,suppliedOwnersMatch:true},keeper:{address:addresses.revealer,code:keeperCode,balanceMON:formatEther(keeperBalance)},
     estimate:{gasUnits:gas.toString(),illustrativeGasLimitWith20PercentBuffer:gasLimit.toString(),gasPriceWei:fees.gasPrice?.toString()??null,maxFeePerGasWei:fees.maxFeePerGas?.toString()??null,maxPriorityFeePerGasWei:fees.maxPriorityFeePerGas?.toString()??null,illustrativeGasBudgetMON:formatEther(gasLimit*feeCap),proposedDeployerBalanceMON:formatEther(deployerBalance),proposedDeployerCoversIllustrativeBudget:deployerBalance>=gasLimit*feeCap},
-    release:{realFundsEnabled:RELEASE_STATUS.realFundsEnabled,blockingFindings:RELEASE_STATUS.blockingFindings,arenaDeployed:false,keeperServiceStarted:false},
+    release:{realFundsEnabled:RELEASE_STATUS.realFundsEnabled,blockingFindings:RELEASE_STATUS.blockingFindings,acceptedRisks:RELEASE_STATUS.acceptedRisks,arenaDeployed:false,keeperServiceStarted:false},
     transactionsSigned:0,transactionsSent:0,
-    limitations:['RPC estimation executes the constructor in simulation only; it does not deploy code or prove game security.','Safe state, balances and fee quote are latest reads, not an atomic pinned-block snapshot. Recheck immediately before any user-signed deployment.','Gas budget is a temporary quote with a 20% gas-unit buffer, not a fee guarantee.','No matching CHOG implementation source verified, no external alerts delivered and no mainnet reveal-throughput check. SEC-03/04 remain open.','No credential file is read by this tool. Proposed deployer is a draft using the supplied treasury; owner has not confirmed this account for deployment.']
+    limitations:['RPC estimation executes the constructor in simulation only; it does not deploy code or prove game security.','CHOG identity/state is checked at its recorded block. Safe state, balances and fee quote are latest reads, not an atomic shared snapshot. Recheck immediately before any user-signed deployment.','Gas budget is a temporary quote with a 20% gas-unit buffer, not a fee guarantee.','No matching CHOG implementation source verified and no mainnet reveal-throughput check. Telegram/external API alert delivery is separately recorded in security/operational-readiness.json. SEC-03/04 remain open.','No credential file is read by this tool. Proposed deployer is a draft using the supplied treasury; owner has not confirmed this account for deployment.']
   };
   await writeFile(resolve(root,'security/deployment-preflight.json'),JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify(report,null,2));

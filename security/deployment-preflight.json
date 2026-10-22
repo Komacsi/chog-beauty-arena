@@ -1,9 +1,9 @@
 {
-  "checkedAt": "2026-10-21T22:52:37.352Z",
+  "checkedAt": "2026-10-22T20:02:07.911Z",
   "operatorDate": "2026-10-22",
   "timezone": "Europe/Moscow",
   "chainId": 143,
-  "observedBlock": 115450219,
+  "observedBlock": 115701661,
   "purpose": "Read-only contract-creation estimate. Draft only; no deployment approval or transaction.",
   "constructorParameters": {
     "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
@@ -14,6 +14,24 @@
   },
   "proposedDeployer": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
   "deployerConfirmedByOwner": false,
+  "chogAsset": {
+    "chainId": 143,
+    "block": 115701660,
+    "blockHash": "0x77ee384666708636326c4f3ce3cf3ff337bee86d34d29d89dc7097c5c370c331",
+    "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+    "proxyCodeHash": "0x391069fc41b89a13233652faba0f0a5066d6825985125f24e2eb66e965eb407a",
+    "implementation": "0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8",
+    "implementationCodeHash": "0x6dda419a8059dd56106bc3bc80bb22ffbe6e5a6f37bf42bf3a655a843e341c26",
+    "controller": "0xa7283d07812a02afb7c09b60f8896bcea3f90ace",
+    "pool": "0x116e7d070f1888b81e1e0324f56d6746b2d7d8f1",
+    "initialized": true,
+    "graduated": true,
+    "decimals": 18,
+    "controllerWord": "0x000000000000000000000000a7283d07812a02afb7c09b60f8896bcea3f90ace",
+    "flagsWord": "0x000000000000000000000101116e7d070f1888b81e1e0324f56d6746b2d7d8f1",
+    "sourceVerified": false,
+    "scope": "Exact reviewed identity and storage assumptions at one block; not source verification or release approval."
+  },
   "compilation": {
     "artifactSha256": "66075479ce2f34dbf4ad5dfdec96348536f9acb9faf9d543b57c50d4f0229cb4",
     "creationBytecodeKeccak256": "0x77d268dd2950a9f2e21ffbc60d6ae84c419fa95584ee1ffa7745ea143e10199e",
@@ -55,6 +73,10 @@
       "SEC-03",
       "SEC-04"
     ],
+    "acceptedRisks": [
+      "SEC-02",
+      "CHOG-SOURCE"
+    ],
     "arenaDeployed": false,
     "keeperServiceStarted": false
   },
@@ -62,9 +84,9 @@
   "transactionsSent": 0,
   "limitations": [
     "RPC estimation executes the constructor in simulation only; it does not deploy code or prove game security.",
-    "Safe state, balances and fee quote are latest reads, not an atomic pinned-block snapshot. Recheck immediately before any user-signed deployment.",
+    "CHOG identity/state is checked at its recorded block. Safe state, balances and fee quote are latest reads, not an atomic shared snapshot. Recheck immediately before any user-signed deployment.",
     "Gas budget is a temporary quote with a 20% gas-unit buffer, not a fee guarantee.",
-    "No matching CHOG implementation source verified, no external alerts delivered and no mainnet reveal-throughput check. SEC-03/04 remain open.",
+    "No matching CHOG implementation source verified and no mainnet reveal-throughput check. Telegram/external API alert delivery is separately recorded in security/operational-readiness.json. SEC-03/04 remain open.",
     "No credential file is read by this tool. Proposed deployer is a draft using the supplied treasury; owner has not confirmed this account for deployment."
   ]
 }
