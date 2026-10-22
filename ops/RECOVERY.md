@@ -1,5 +1,15 @@
 # Keeper governance and recovery
 
+## Current live status, 23 October 2026
+
+The reviewed arena is live at https://chog-beauty-arena.netlify.app. Keeper and
+the separate live API are active/enabled; restart and public acceptance passed.
+Original demo/configuration/state remain separate. Health-only Telegram checks
+are active; battle monitoring is disabled. Source publication and a real trial
+battle were declined. See [the active runbook](LIVE.md) and
+../security/live-launch.json. Earlier staging/closed-release statements below
+are historical and superseded by this status.
+
 Service templates only: no production keeper service, key or arena has been configured.
 The user-created Safe and funded keeper have been verified read-only; see
 security/launch-wallets.json and the public addresses in .env.example.

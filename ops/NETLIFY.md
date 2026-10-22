@@ -1,5 +1,15 @@
 # Netlify frontend with the existing VPS
 
+## Current live status, 23 October 2026
+
+The reviewed arena is live at https://chog-beauty-arena.netlify.app. Keeper and
+the separate live API are active/enabled; restart and public acceptance passed.
+Original demo/configuration/state remain separate. Health-only Telegram checks
+are active; battle monitoring is disabled. Source publication and a real trial
+battle were declined. See [the active runbook](LIVE.md) and
+../security/live-launch.json. Earlier staging/closed-release statements below
+are historical and superseded by this status.
+
 ## Published staging, 22 October 2026
 
 - Site: https://chog-beauty-arena.netlify.app (public, confirmed Free team plan).

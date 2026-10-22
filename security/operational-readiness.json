@@ -82,5 +82,6 @@
     "SEC-04: matching CHOG implementation source and administrative/transfer behavior review.",
     "Deploy arena with owner wallet, verify source, configure actual address/block and conduct controlled real match only after release decision."
   ],
-  "transactionsSent": 0
+  "transactionsSent": 0,
+  "supersededBy": "security/live-launch.json (23 October 2026): actual deployment, live runtime/keeper startup/restart and public cutover complete; CHOG source risk accepted, source publication and trial battle declined."
 }

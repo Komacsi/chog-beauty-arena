@@ -1,5 +1,15 @@
 # Owner-reviewed arena deployment
 
+## Current live status, 23 October 2026
+
+The reviewed arena is live at https://chog-beauty-arena.netlify.app. Keeper and
+the separate live API are active/enabled; restart and public acceptance passed.
+Original demo/configuration/state remain separate. Health-only Telegram checks
+are active; battle monitoring is disabled. Source publication and a real trial
+battle were declined. See [the active runbook](LIVE.md) and
+../security/live-launch.json. Earlier staging/closed-release statements below
+are historical and superseded by this status.
+
 ## Actual owner-signed deployment
 
 On 22 October 2026 the owner sent transaction
@@ -108,13 +118,13 @@ rules/counters and current CHOG/Safe. Localhost RPC results are labeled simulati
 only and never reported as a verified mainnet deployment. A trusted RPC remains
 an assumption. No repeat transaction is sent by this command.
 
-If the owner authorizes public source publication, verify the arena using
-source-input.json, exact compiler version and constructor parameters. Local
-source/bytecode matching has already passed; Sourcify publication is a separate
-transparency step, not required by the game or keeper. Record the arena address and deployment block
+The owner declined Sourcify publication on 23 October 2026. Do not submit the
+source package or substitute another public verifier without new authorization.
+Local source/bytecode matching has already passed; publication is not required
+by the game or keeper. Record the arena address and deployment block
 only after checking the actual receipt; never configure the prediction as if it
-were deployed. Separately prepare the runtime, start the keeper in controlled
-rehearsal, check automatic opening/payout/refund/recovery, then review the public
+were deployed. Separately prepare the runtime, validate keeper startup, RPC and
+heartbeat without a real trial battle, then review the public
 release decision. The normal web/keeper guard stays false for SEC-03 and the
 remaining deployment/rehearsal portion of SEC-04. Existing demo/history stays
 separate and no battle-monitoring expansion is introduced.
@@ -126,6 +136,6 @@ request for two NFT-holder wallet addresses from the plan. Do not substitute it
 with an unrequested real-money test, or describe the unperformed battle as passed.
 Existing fork/EVM evidence and actual mainnet creation/bytecode checks stand as
 recorded. Continue runtime/keeper startup, RPC and heartbeat checks without a real
-battle, then make the code-reviewed live-release decision separately. The owner's
-question about Sourcify's purpose is not publication consent. See
-security/launch-owner-decisions.json; source submission remains unperformed.
+battle, then make the code-reviewed live-release decision separately. The owner
+also explicitly declined Sourcify; publication is removed from the launch plan.
+See security/launch-owner-decisions.json; no source package was submitted.

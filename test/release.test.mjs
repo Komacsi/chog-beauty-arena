@@ -7,16 +7,17 @@ import {join} from 'node:path';
 import {RELEASE_STATUS,assertLiveReleaseAllowed} from '../lib/release.mjs';
 const root=new URL('..',import.meta.url);
 
-test('unresolved security findings block funded server and keeper before opening the demo database',async()=>{
-  assert.equal(RELEASE_STATUS.realFundsEnabled,false);assert.doesNotThrow(()=>assertLiveReleaseAllowed(''));
+test('release permits only the reviewed deployment and rejects another arena before touching demo state',async()=>{
+  assert.equal(RELEASE_STATUS.realFundsEnabled,true);assert.doesNotThrow(()=>assertLiveReleaseAllowed(''));
+  assert.doesNotThrow(()=>assertLiveReleaseAllowed(RELEASE_STATUS.arenaAddress));
   assert.ok(!RELEASE_STATUS.blockingFindings.includes('SEC-02'));assert.ok(RELEASE_STATUS.acceptedRisks.includes('SEC-02'));
   assert.ok(RELEASE_STATUS.acceptedRisks.includes('CHOG-SOURCE'));
-  assert.ok(RELEASE_STATUS.blockingFindings.includes('SEC-03'));assert.ok(RELEASE_STATUS.blockingFindings.includes('SEC-04'));
+  assert.deepEqual(RELEASE_STATUS.blockingFindings,[]);
   const dir=await mkdtemp(join(tmpdir(),'chog-release-'));
   try{
     for(const script of ['server.mjs','scripts/keeper.mjs']){
       const result=spawnSync(process.execPath,[script],{cwd:root,env:{...process.env,ARENA_STATE_DIR:dir,ARENA_CONTRACT_ADDRESS:'0x1111111111111111111111111111111111111111',KEEPER_PRIVATE_KEY:''},encoding:'utf8',timeout:10000});
-      assert.equal(result.status,1);assert.match(result.stderr,/Real-token deployment is disabled/);
+      assert.equal(result.status,1);assert.match(result.stderr,/approved only for the reviewed Monad arena/);
     }
     await assert.rejects(access(join(dir,'arena.sqlite')));
   }finally{await rm(dir,{recursive:true,force:true});}

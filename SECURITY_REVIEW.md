@@ -1,5 +1,17 @@
 # Проверка безопасности Chog: Beauty Arena
 
+## Текущий статус, 23 октября 2026 (Москва)
+
+Реальная версия включена для проверенной арены 0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5 по прямому поручению владельца выполнить план запуска. Keeper разблокировал keystore через systemd credentials, догнал цепь, восстановился после ручного перезапуска и публикует здоровый heartbeat. Live API, Netlify, поиск NFT и изображение проверены без транзакций. 145 Node-тестов и 4 Linux-проверки прошли; production npm audit: 0 известных уязвимостей. См. security/live-launch.json и ops/LIVE.md.
+
+Оставшиеся условия SEC-03/04 закрыты в согласованном объёме эксплуатационной проверкой и узким принятием CHOG-SOURCE. Это не гарантия mainnet-пропускной способности или отсутствия эксплойтов. Ожидаемая аудитория — до 50 человек; риск большого потока ранее принят. Мониторинг боёв отключён по просьбе владельца; проверки охватывают RPC, Safe, MON и heartbeat. Пробный реальный бой и Sourcify отклонены, не выполнены и не зачтены как пройденные. Подключение именно Rabby вручную ещё не подтверждено: во встроенном браузере расширения нет.
+
+Исправлена совместимость загрузчика с systemd: допускаются только root:root файлы 0440 в /run/credentials/<service> с root:root каталогом 0550 и точным CREDENTIALS_DIRECTORY, либо прежние owner-only файлы. Обычные групповые файлы не допускаются. Исходные секреты остаются root:root 0600; содержимое не выводилось. Адрес, deployment block, runtime hash арены и CHOG проверяются до загрузки credentials/live-индекса.
+
+Модель доверия к keeper/Safe и отсутствие matching source CHOG сохраняются. Далее — история проверки; прежние фразы о выключенном keeper и незапущенной арене заменены текущим статусом.
+
+## История проверки
+
 Текущая редакция включает отзыв/замену keeper через Safe, аварийные возвраты и замену Ganache на Anvil. Свежий npm audit: 0 известных уязвимостей. 21 октября 2026 (Москва) проверен созданный владельцем Safe: версия 1.5.0, порог 2 из 3, все три адреса подписантов совпадают, enabled modules отсутствуют, code hashes подходят арене. Указанный keeper — отдельный EOA с наблюдаемым балансом 10 MON. Публичные адреса сохранены в .env.example, снимок блока 115176123 — в security/launch-wallets.json. 22 октября владелец завершил настройку encrypted keystore и пароля на VPS; оба файла root:root 0600, содержимое пароля агент не читал. Keeper остаётся выключенным без адреса/блока арены; ограничения запуска ниже сохраняются (security/keeper-credentials.json).
 
 Дата: **20 октября 2026, Москва**. Статус: **реальные средства пока не включать**.
@@ -243,4 +255,4 @@ Earlier statements that no mainnet arena exists are historical and superseded by
 
 The owner explicitly said “не надо пробный бой”. The real trial battle and requests for NFT-holder wallet addresses are removed from the plan. The unperformed test is not counted as passed; local fork/EVM evidence and actual mainnet creation/bytecode checks remain as recorded. Proceed with non-battle runtime/keeper startup, RPC and heartbeat validation before a separate live-release readiness update. No broad waiver of unrelated failures or guard bypass was inferred.
 
-The owner asked why Sourcify publication is needed, which is not consent to publish. Submission remains blocked/unperformed pending a decision. Local arena source/bytecode matching has passed; public source publication is a separate transparency step and not required by the contract, website or keeper. See security/launch-owner-decisions.json.
+The owner subsequently explicitly declined Sourcify (“не надо soufcify”). Public source publication is removed from the launch plan; no package was submitted. Do not substitute another public verifier without new authorization. Local arena source/bytecode matching has passed; publication is not required by the contract, website or keeper. See security/launch-owner-decisions.json.

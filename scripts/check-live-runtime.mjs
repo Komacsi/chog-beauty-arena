@@ -1,0 +1,41 @@
+// Read-only operational acceptance. No signer, wallet prompt or transaction.
+import assert from 'node:assert/strict';
+import {writeFile} from 'node:fs/promises';
+import {Contract,FetchRequest,JsonRpcProvider,formatEther} from 'ethers';
+import {RELEASE_STATUS} from '../lib/release.mjs';
+import {validateLiveStartup} from '../lib/live-startup.mjs';
+import {validateGovernance} from '../lib/governance.mjs';
+import {discoverOwnedChogs,ownershipAbi} from '../lib/wallet-nfts.mjs';
+import {drandClient,DRAND_INFO} from '../lib/timelock.mjs';
+import {RPC_URL} from '../lib/config.mjs';
+const base=new URL(process.argv[2] || 'http://127.0.0.1:3001');
+assert.ok(base.protocol==='https:' || (base.protocol==='http:' && base.hostname==='127.0.0.1'));
+const get=async path=>{const response=await fetch(new URL(path,base),{signal:AbortSignal.timeout(30000)});assert.equal(response.status,200,path);return response;};
+const configResponse=await get('/api/config'),config=await configResponse.json();
+assert.equal(configResponse.headers.get('cache-control'),'no-store');
+assert.equal(config.mode,'live');assert.equal(config.release.realFundsEnabled,true);
+assert.equal(config.arenaAddress,RELEASE_STATUS.arenaAddress);assert.equal(config.chainId,143);
+assert.equal(config.minStake,'5000000000000000000000');assert.equal(config.feeBps,100);
+const health=await(await get('/api/health')).json();assert.equal(health.status,'ok');assert.equal(health.keeper,'healthy');
+const state=await(await get('/api/state')).json();assert.ok(state.index.backlogBlocks===0);
+const connection=new FetchRequest(RPC_URL);connection.timeout=15000;
+const provider=new JsonRpcProvider(connection,143,{batchMaxCount:1,cacheTimeout:-1});
+try{
+  const asset=await validateLiveStartup(provider,config.arenaAddress,RELEASE_STATUS.deploymentBlock);
+  const arena=new Contract(config.arenaAddress,config.abi,provider);
+  const governance=await validateGovernance(provider,await arena.owner());
+  const revealer=await arena.revealer();assert.equal(revealer.toLowerCase(),config.revealerAddress.toLowerCase());
+  const balance=await provider.getBalance(revealer);assert.ok(balance>=10n**17n);
+  const latest=await provider.getTransactionCount(revealer,'latest'),pending=await provider.getTransactionCount(revealer,'pending');assert.equal(latest,pending);
+  const collection=new Contract(config.collection,[...ownershipAbi,'function ownerOf(uint256) view returns(address)'],provider);
+  const blockTag=await provider.getBlockNumber(),sampleOwner=await collection.ownerOf(1,{blockTag});
+  const owned=await discoverOwnedChogs({collection,account:sampleOwner,blockTag});assert.ok(owned.includes(1));
+  const metadata=await(await get('/api/nfts/1')).json();assert.equal(metadata.tokenId,1);assert.ok(metadata.name);
+  const image=await get(metadata.image);assert.ok((await image.arrayBuffer()).byteLength>0);
+  assert.equal((await fetch(new URL('/api/deployment',base))).status,403);
+  const walletRounds=await(await get('/api/wallet-rounds?account='+revealer)).json();assert.ok(Array.isArray(walletRounds.ids));
+  const drand=await drandClient().get(Math.floor((Date.now()/1000-DRAND_INFO.genesis_time)/DRAND_INFO.period));
+  const result={checkedAt:new Date().toISOString(),base:base.origin,arena:config.arenaAddress,chainId:143,mode:config.mode,realFundsEnabled:true,health,assetBlock:asset.block,governance,keeper:revealer,keeperBalanceMON:formatEther(balance),latestNonce:latest,pendingNonce:pending,index:state.index,ownedNftsFound:owned.length,artworkLoaded:true,drandRound:drand.round,transactionsSigned:0,transactionsSent:0,limitation:'Read-only checks; no human Rabby connection or real trial battle was performed.'};
+  if(process.argv[3])await writeFile(process.argv[3],JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+  console.log(JSON.stringify(result,null,2));
+}finally{provider.destroy();}

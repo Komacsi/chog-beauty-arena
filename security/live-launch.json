@@ -1,0 +1,145 @@
+{
+  "checkedAt": "2026-10-22T21:58:58.988Z",
+  "operatorDate": "2026-10-23",
+  "timezone": "Europe/Moscow",
+  "status": "live",
+  "ownerAuthorization": "Owner explicitly requested the four-step launch plan including enabling real bets, then said Делай and продолжай.",
+  "site": "https://chog-beauty-arena.netlify.app",
+  "netlifyDeploy": "6ada8399b1fe7abf06164e6b",
+  "api": "https://chog-api.72-56-98-23.sslip.io",
+  "arena": "0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5",
+  "deploymentBlock": 115710675,
+  "runtime": "/opt/chog-releases/live-20261023-credentials",
+  "environment": "/etc/chog-arena/live.env",
+  "publicCutoverBackup": "/var/backups/chog-live/cutover-20261022T215604Z",
+  "demoBackup": "/var/backups/chog-live/20261022T214536Z",
+  "services": {
+    "chog-keeper": "active, enabled, manually restarted, no automatic restarts since restart acceptance",
+    "chog-live-web": "active, enabled, 127.0.0.1:3001, /var/lib/chog-live-web",
+    "chog-web": "active, original demo on 127.0.0.1:3000 and SSH staging :8080",
+    "chog-monitor.timer": "active, enabled; MONITOR_BATTLES=0; latest run checkedRounds=0, alerts=[]"
+  },
+  "keeperCredentials": {
+    "storedFiles": "root:root 0600, contents never printed",
+    "runtimeFiles": "systemd protected per-service mount: root:root 0440 files inside root:root 0550 directory",
+    "compatibilityFix": "Accept only this exact systemd path/metadata in addition to ordinary owner-only files; arbitrary group-readable keys remain rejected",
+    "credentialUnlockConfirmed": true,
+    "privateJournalMode": "0700 directory, 0600 SQLite files",
+    "secretsCopiedIntoRuntime": false
+  },
+  "checks": {
+    "nodeTestsPassed": 145,
+    "linuxCredentialAndMonitorTestsPassed": 4,
+    "productionAuditVulnerabilities": 0,
+    "installedRuntimeSmokePassed": true,
+    "loopbackAcceptance": {
+      "checkedAt": "2026-10-22T21:53:42.585Z",
+      "base": "http://127.0.0.1:3001",
+      "arena": "0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5",
+      "chainId": 143,
+      "mode": "live",
+      "realFundsEnabled": true,
+      "health": {
+        "status": "ok",
+        "mode": "live",
+        "keeper": "healthy",
+        "alerts": []
+      },
+      "assetBlock": 115723760,
+      "governance": {
+        "address": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d",
+        "version": "1.5.0",
+        "threshold": 2,
+        "owners": [
+          "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+          "0xbB3e1fD0962676D04B77EFf69c21Fa51692A5338",
+          "0x6084D9f004206E4d548AEA2b694411CC6F07f6e5"
+        ]
+      },
+      "keeper": "0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908",
+      "keeperBalanceMON": "10.0",
+      "latestNonce": 0,
+      "pendingNonce": 0,
+      "index": {
+        "indexedBlock": 115723749,
+        "headBlock": 115723752,
+        "targetBlock": 115723749,
+        "backlogBlocks": 0,
+        "ranges": 1,
+        "reorgReset": false
+      },
+      "ownedNftsFound": 1,
+      "artworkLoaded": true,
+      "drandRound": 33300884,
+      "transactionsSigned": 0,
+      "transactionsSent": 0,
+      "limitation": "Read-only checks; no human Rabby connection or real trial battle was performed."
+    },
+    "publicNetlifyAcceptance": {
+      "checkedAt": "2026-10-22T21:58:58.988Z",
+      "base": "https://chog-beauty-arena.netlify.app",
+      "arena": "0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5",
+      "chainId": 143,
+      "mode": "live",
+      "realFundsEnabled": true,
+      "health": {
+        "status": "ok",
+        "mode": "live",
+        "keeper": "healthy",
+        "alerts": []
+      },
+      "assetBlock": 115724846,
+      "governance": {
+        "address": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d",
+        "version": "1.5.0",
+        "threshold": 2,
+        "owners": [
+          "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+          "0xbB3e1fD0962676D04B77EFf69c21Fa51692A5338",
+          "0x6084D9f004206E4d548AEA2b694411CC6F07f6e5"
+        ]
+      },
+      "keeper": "0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908",
+      "keeperBalanceMON": "10.0",
+      "latestNonce": 0,
+      "pendingNonce": 0,
+      "index": {
+        "indexedBlock": 115724836,
+        "headBlock": 115724839,
+        "targetBlock": 115724836,
+        "backlogBlocks": 0,
+        "ranges": 1,
+        "reorgReset": false
+      },
+      "ownedNftsFound": 1,
+      "artworkLoaded": true,
+      "drandRound": 33300990,
+      "transactionsSigned": 0,
+      "transactionsSent": 0,
+      "limitation": "Read-only checks; no human Rabby connection or real trial battle was performed."
+    },
+    "publicBrowserLiveModeObserved": true,
+    "humanRabbyConnection": "not performed: extension unavailable in IAB; owner can connect in ordinary Rabby-enabled browser",
+    "realTrialBattle": "declined by owner; not performed or marked passed",
+    "sourcePublication": "declined; no package submitted",
+    "mainnetTransactionsSignedOrSentDuringLaunch": 0
+  },
+  "limitations": [
+    "Authorized keeper can omit reveals; compromised quorum can cancel unfinished rounds or replace keeper.",
+    "CHOG matching source remains unavailable; owner accepted risk for exact bytecode/state.",
+    "Expected audience is 50; prior bounded load evidence is not a mainnet throughput guarantee or an enforced bet cap.",
+    "Frontend has no independent external availability monitor. Battle monitoring is disabled as requested.",
+    "Local Windows network probe timed out once; public API/UI acceptance succeeded from VPS and browser."
+  ],
+  "runtimeSourceSha256": {
+    "server.mjs": "bf341555f95177f1faebba438205a344d3a001db50876a467d297a16bb634d84",
+    "lib/release.mjs": "e581f23fed23473860249375da8448ca15e5aafc9b636393a12f1835820b9898",
+    "lib/live-startup.mjs": "6343d89a0e6fc387ded08b87ba28dd4f9558684ef6b8242aa30c80f0557ee9fb",
+    "lib/keeper-signer.mjs": "7154f2172a330614829d161923b8e90f6f2a4dfaf3542596208e478dca6e6b69",
+    "lib/monitor.mjs": "5cbe07c47da98564c5d9f998511e7d354023a7604b9b0be7dce54512a09c3ea7",
+    "scripts/keeper.mjs": "77674bd975252aebdd38deb9c144400dc25ccf8562aff580cf13177e3ba53951",
+    "scripts/monitor.mjs": "80a60699fd0f0b47ebaaaad521cae34967a4f214b62093b01dee73145604f117",
+    "public/bundle.js": "c2ff0fa055ba2fff2b6b22aa8ef22892ac197c238f4c847024c16e19c1d09fae"
+  },
+  "realFundsEnabled": true
+}

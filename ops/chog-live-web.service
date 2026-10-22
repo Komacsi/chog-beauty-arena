@@ -1,0 +1,36 @@
+[Unit]
+Description=Chog Arena live API and public event index
+Wants=network-online.target
+After=network-online.target chog-keeper.service
+
+[Service]
+Type=simple
+User=chogweb
+Group=chogweb
+WorkingDirectory=/opt/chog-live
+EnvironmentFile=/etc/chog-arena/live.env
+Environment=HOST=127.0.0.1
+Environment=PORT=3001
+Environment=KEEPER_HEALTH_PATH=/run/chog-keeper-health/status.json
+StateDirectory=chog-live-web
+StateDirectoryMode=0700
+Environment=ARENA_STATE_DIR=/var/lib/chog-live-web
+ExecStart=/usr/local/bin/node server.mjs
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+TimeoutStopSec=45
+
+[Install]
+WantedBy=multi-user.target

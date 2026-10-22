@@ -16,10 +16,15 @@ import {createNftCatalog,validTokenId,catalogGateways} from './lib/nft-catalog.m
 import {ChainIndex} from './lib/chain-index.mjs';
 import {webOrigins,allowedWebOrigin} from './lib/web-origin.mjs';
 import {serviceHealth} from './lib/service-health.mjs';
+import {validateLiveStartup} from './lib/live-startup.mjs';
 const allowedOrigins=webOrigins(process.env.ARENA_WEB_ORIGINS);
 const arenaAddress=process.env.ARENA_CONTRACT_ADDRESS || '';
 assertLiveReleaseAllowed(arenaAddress);
 const root=import.meta.dirname;
+const live=Boolean(arenaAddress);
+const rpcConnection=new FetchRequest(RPC_URL);rpcConnection.timeout=15000;
+const provider=live?new JsonRpcProvider(rpcConnection,CHAIN_ID,{batchMaxCount:1}):null;
+if(live)await validateLiveStartup(provider,arenaAddress,process.env.ARENA_FROM_BLOCK);
 const stateDir=process.env.ARENA_STATE_DIR || resolve(root,'data');
 await mkdir(stateDir,{recursive:true});
 const db=new DatabaseSync(resolve(stateDir,'arena.sqlite'));
@@ -35,10 +40,7 @@ if(!state.draws){state.draws=drawTotals(state.rounds);save();}
 if(demo.migrateMinimumStake(state))save();
 if(demo.migrateAggregatePayouts(state))save();
 const artifact=JSON.parse(await readFile(resolve(root,'artifacts/BeautyArena.json'),'utf8'));
-const live=Boolean(arenaAddress);
 const demoFastRounds=!live && process.env.DEMO_FAST_ROUNDS!=='0';
-const rpcConnection=new FetchRequest(RPC_URL);rpcConnection.timeout=15000;
-const provider=live?new JsonRpcProvider(rpcConnection,CHAIN_ID,{batchMaxCount:1}):null;
 const arena=live?new Contract(arenaAddress,artifact.abi,provider):null;
 let catalogProvider;
 const nftCatalog=createNftCatalog({seedNfts:nfts,cacheDir:resolve(stateDir,'nft-cache'),gateways:catalogGateways(process.env.NFT_IPFS_PRIMARY || 'filebase'),readTokenUri:async tokenId=>{
@@ -122,8 +124,8 @@ const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connec
         id=state.demoAccounts[persona];demo.user(state,id).holder=demo.ownedTokens(state,id).length>0;
       }
       if(!live)await tick();
-      if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',release:RELEASE_STATUS,collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,revealerAddress,governanceAddress,arenaAddress,feeBps:FEE_BPS,minStake:MIN_STAKE.toString(),nfts,abi:artifact.abi,demoFastRounds,privacy:'timelock'});
-      if(req.method==='GET' && url.pathname==='/api/deployment')return RELEASE_STATUS.realFundsEnabled?json(res,200,artifact):json(res,403,{error:RELEASE_STATUS.message});
+      if(req.method==='GET' && url.pathname==='/api/config')return json(res,200,{mode:live?'live':'demo',release:{...RELEASE_STATUS,realFundsEnabled:live&&RELEASE_STATUS.realFundsEnabled},collection:COLLECTION,token:CHOG_TOKEN,chainId:CHAIN_ID,treasury,revealerAddress,governanceAddress,arenaAddress,feeBps:FEE_BPS,minStake:MIN_STAKE.toString(),nfts,abi:artifact.abi,demoFastRounds,privacy:'timelock'});
+      if(req.method==='GET' && url.pathname==='/api/deployment')return json(res,403,{error:'Use the existing reviewed arena. Public contract deployment is disabled.'});
       if(live && req.method==='GET' && url.pathname==='/api/wallet-rounds'){
         await readLive();const before=Number(url.searchParams.get('before') || Number.MAX_SAFE_INTEGER);
         if(!Number.isSafeInteger(before)||before<1)return json(res,400,{error:'Invalid history cursor'});

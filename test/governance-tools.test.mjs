@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,writeFile,rm,chmod} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {Wallet,Interface,encryptKeystoreJson} from 'ethers';
@@ -28,6 +28,11 @@ test('keeper loads an encrypted disposable key, rejects raw keys and hides unloc
     await assert.rejects(loadKeeperSigner(null,{...env,KEEPER_PRIVATE_KEY:wallet.privateKey}),/encrypted keystore/);
     await assert.rejects(loadKeeperSigner(null,{}),/Set KEEPER/);
     await writeFile(pass,'incorrect');await assert.rejects(loadKeeperSigner(null,env),/^Error: Cannot unlock keeper keystore$/);
+    if(process.platform!=='win32'){
+      await chmod(key,0o440);
+      await assert.rejects(loadKeeperSigner(null,{...env,CREDENTIALS_DIRECTORY:dir}),/protected systemd credentials/);
+      await chmod(key,0o600);
+    }
   }finally{await rm(dir,{recursive:true,force:true});}
 });
 test('read-only monitor reports paused service, urgent refunds, low gas and coverage limits',async()=>{
@@ -42,4 +47,10 @@ test('read-only monitor reports paused service, urgent refunds, low gas and cove
   assert.deepEqual(result.alerts.map(a=>a.code),['RPC_STALE','GOVERNANCE_CONFIGURATION','KEEPER_LOW_MON','COVERAGE_LIMIT','REFUND_PENDING','REVEAL_DEADLINE_NEAR']);
   contract.revealer=async()=>'0x'+'0'.repeat(40);
   assert.ok((await monitorArena({arena:contract,provider,validateGovernance:async()=>{},minimumGas:1n,now:250})).alerts.some(a=>a.code==='KEEPER_REVOKED'));
+});
+
+test('health-only monitoring checks RPC, governance and gas without reading battles',async()=>{
+  const contract={revealer:async()=>arena,owner:async()=>governance,currentRoundId:async()=>1000n,interruptedThroughRound:async()=>0n,getRound:async()=>{throw Error('Battle monitoring must remain disabled');}};
+  const result=await monitorArena({arena:contract,provider:{getBlock:async()=>({timestamp:250}),getBalance:async()=>0n},validateGovernance:async()=>{},minimumGas:1n,now:250,includeRounds:false});
+  assert.equal(result.checkedRounds,0);assert.deepEqual(result.alerts,[{code:'KEEPER_LOW_MON'}]);
 });

@@ -20,7 +20,7 @@ jobs:
           $syntaxErrors = $null
           [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/create-keeper-keystore.ps1'), [ref]$null, [ref]$syntaxErrors) | Out-Null
           if ($syntaxErrors) { throw ($syntaxErrors | Out-String) }
-      - run: bash -n ops/prepare-ubuntu.sh ops/configure-staging.sh ops/configure-netlify.sh ops/configure-telegram.sh ops/configure-health.sh
+      - run: bash -n ops/prepare-ubuntu.sh ops/configure-staging.sh ops/configure-netlify.sh ops/configure-telegram.sh ops/configure-health.sh ops/configure-live.sh ops/activate-live.sh
       - run: python3 -c "import ast, pathlib; ast.parse(pathlib.Path('scripts/host-preflight.py').read_text())"
       - run: npm run build:netlify
       - run: npm test

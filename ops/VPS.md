@@ -1,5 +1,15 @@
 # VPS launch runbook
 
+## Current live status, 23 October 2026
+
+The reviewed arena is live at https://chog-beauty-arena.netlify.app. Keeper and
+the separate live API are active/enabled; restart and public acceptance passed.
+Original demo/configuration/state remain separate. Health-only Telegram checks
+are active; battle monitoring is disabled. Source publication and a real trial
+battle were declined. See [the active runbook](LIVE.md) and
+../security/live-launch.json. Earlier staging/closed-release statements below
+are historical and superseded by this status.
+
 Updated 22 October 2026. The Ubuntu 24.04 VPS runs the public HTTPS API for the
 Netlify fictional demo; the original SSH staging listener also remains available.
 The keeper's encrypted keystore and owner-entered password are installed root-only.

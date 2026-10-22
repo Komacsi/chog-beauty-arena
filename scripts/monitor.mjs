@@ -15,7 +15,7 @@ try{
   if(Number((await provider.getNetwork()).chainId)!==CHAIN_ID)throw Error('Wrong network');
   const {abi}=JSON.parse(await readFile(new URL('../artifacts/BeautyArena.json',import.meta.url),'utf8'));
   const minimumGas=parseUnits(process.env.KEEPER_MIN_MON || '0.1',18);if(minimumGas<0n)throw Error('Invalid gas alert threshold');
-  result=await monitorArena({arena:new Contract(address,abi,provider),provider,validateGovernance,minimumGas,maxRounds:Number(process.env.MONITOR_MAX_ROUNDS || 200)});
+  result=await monitorArena({arena:new Contract(address,abi,provider),provider,validateGovernance,minimumGas,maxRounds:Number(process.env.MONITOR_MAX_ROUNDS || 200),includeRounds:process.env.MONITOR_BATTLES!=='0'});
   if(process.env.KEEPER_HEALTH_PATH)result.alerts.push(...await keeperHealthAlerts(process.env.KEEPER_HEALTH_PATH));
 }catch{result={alerts:[{code:'MONITOR_FAILED'}]};}finally{provider.destroy();}
 console.log(JSON.stringify(result));if(result.alerts.length)process.exitCode=2;

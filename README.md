@@ -1,5 +1,7 @@
 # Chog: Beauty Arena
 
+Live on Monad: https://chog-beauty-arena.netlify.app. Arena `0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5`, deployment block `115710675`. Keeper and separate live API are running with restart persistence; original demo/history remain separate. See [ops/LIVE.md](ops/LIVE.md) and [security/live-launch.json](security/live-launch.json).
+
 24-hour contests between two Chog Genesis NFTs. Each owned NFT gives one vote without a CHOG bet. NFT groups may back different sides. The same wallet may also place multiple CHOG bets; only its first paid bet adds one additional vote. Every bet participates in payouts. Non-holders participate by betting. See [NFT_VOTING.md](NFT_VOTING.md) for protocol 7.
 
 ## Holder-created battles and profiles
@@ -19,7 +21,7 @@ The interface uses collection names (for example, CHOG #1760) rather than intern
 - NFTs stay in their owners' wallets. Transfers remain possible. A transfer before acceptance makes the request stale; anyone can clear it. A transfer during a battle does not change that battle or bypass its NFT lock.
 - Independent pairs can run concurrently. The lobby lists open requests and active battles, each with its own voting page. The keeper processes every unfinished round, including older rounds while newer ones are accepting votes.
 
-The leaderboard records each NFT's total wins, losses and draws, ordered by wins descending (token ID breaks ties). NFTs with no recorded results are hidden; a losses-only or draws-only NFT remains listed. A decisive completed round gives the winner one win and the opponent one loss, including one-sided-bank rounds with refunded bets. A completed draw counts as one draw for both NFTs only when more than one vote was cast in total (for example, 1–1). Empty 0–0 rounds and canceled rounds do not affect records. Existing demo history is backfilled on startup without changing payouts, wins or losses.
+The leaderboard records each NFT's total wins, losses and draws, ordered by wins descending (token ID breaks ties). NFTs with no recorded results are hidden; a losses-only or draws-only NFT remains listed. A decisive completed round gives the winner one win and the opponent one loss, including one-sided-bank rounds with refunded bets. A completed draw counts as one draw for both NFTs only when more than one vote was cast in total (for example, 1вЂ“1). Empty 0вЂ“0 rounds and canceled rounds do not affect records. Existing demo history is backfilled on startup without changing payouts, wins or losses.
 
 ## Encrypted choices and automatic opening
 
@@ -30,7 +32,7 @@ Choices are encrypted locally using drand quicknet timelock encryption (`tlock-j
 3. Wallet addresses, bet amounts and the total deposited pool are public. Neither side totals nor chosen sides are published during acceptance. Padded plaintext prevents ciphertext-length leaks between token IDs of different lengths.
 4. The drand unlock time is at least five minutes after acceptance closes, with a one-hour opening window. This margin reduces wall-clock/block-timestamp boundary risks.
 5. A separate keeper fetches a signed drand beacon, verifies it against the pinned production quicknet key, decrypts the onchain ciphertexts and submits `revealVote` / `revealHolderVotes` transactions. Only the currently authorized revealer can submit matching reveals; participants cannot reveal manually. Rewards remain bound to the original participant. The service is trusted to reveal every valid published ciphertext and can influence results by omitting votes.
-6. No second participant action is required for opening. Once all choices open, anyone can settle. At the opening deadline, only revealed votes and their pools count. Unopened entries are excluded and their own bets are refundable in full without fees; they cannot cancel the valid result. If no votes open, the result is 0–0 with full refunds and no recorded draw. Anyone can settle or claim their own payout/refund; only the service can reveal.
+6. No second participant action is required for opening. Once all choices open, anyone can settle. At the opening deadline, only revealed votes and their pools count. Unopened entries are excluded and their own bets are refundable in full without fees; they cannot cancel the valid result. If no votes open, the result is 0вЂ“0 with full refunds and no recorded draw. Anyone can settle or claim their own payout/refund; only the service can reveal.
 
 After closing, choices become publicly readable. This provides pre-close choice privacy, not anonymous transfers or permanent secrecy. Security depends on the drand threshold network not releasing future beacons early. The frontend must also serve the reviewed encryption code. A participant can voluntarily disclose their own choice.
 
@@ -56,7 +58,7 @@ Example: two different wallets have winning totals of 10,000 and 30,000, with a 
 
 ## Run locally
 
-Requires Node.js 24+. Uses built-in SQLite. Ten sample images are bundled; other metadata and images are fetched only as needed from the collection’s onchain tokenURI through fixed IPFS gateways. The cache lives under ARENA_STATE_DIR/nft-cache. Gateway failures show placeholders and a Retry control without discarding the ownership list.
+Requires Node.js 24+. Uses built-in SQLite. Ten sample images are bundled; other metadata and images are fetched only as needed from the collectionвЂ™s onchain tokenURI through fixed IPFS gateways. The cache lives under ARENA_STATE_DIR/nft-cache. Gateway failures show placeholders and a Retry control without discarding the ownership list.
 
 ```sh
 npm ci --ignore-scripts
@@ -80,10 +82,10 @@ Previously settled demo records retain their recorded payouts. On migration to h
 
 ## Live deployment and keeper
 
-**Security review: real-funds launch is blocked.** See [SECURITY_REVIEW.md](SECURITY_REVIEW.md). The former invalid-ciphertext veto is removed under the authorized-service trust model. Keeper operational readiness and external-asset validation remain release conditions. Multi-wallet vote manipulation (SEC-02) is explicitly accepted by the creator and is not a launch blocker. The official server, keeper and setup page reject real-token deployment while the release guard is active. The guard is not an onchain defense and does not stop a third party from deploying source. No live deployment or real token transactions have been performed by the agent. This revision requires a newly deployed contract with the holder-matchmaking ABI; older deployments are not compatible.
+**Live release enabled for the exact reviewed arena on 23 October 2026.** Startup pins its address, deployment block and runtime hash, and rechecks the reviewed CHOG identity/state before loading credentials or opening the live index. The owner authorized the launch, accepted the recorded CHOG source/capacity trust limits, and declined a real trial battle and public source publication. See [SECURITY_REVIEW.md](SECURITY_REVIEW.md) and [security/live-launch.json](security/live-launch.json). This is an internal review, not an independent audit. No mainnet transaction was signed or sent by the agent during activation.
 
 1. Review the trust model and release findings. The selected **Safe 1.5.0, 2-of-3, without enabled modules** is `0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d`; its public ARENA_GOVERNANCE_ADDRESS is recorded in .env.example. Read-only Monad verification passed the pinned proxy/singleton hashes and matched all three supplied owners; see [security/launch-wallets.json](security/launch-wallets.json). Recheck before deployment because Safe settings can change.
-2. The initial keeper wallet is `0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908`, recorded as ARENA_REVEALER_ADDRESS. Its observed gas balance was 10 MON. Once release conditions are met and the guard is lifted, deploy through /setup with the token, NFT collection, treasury, initial revealer and governance Safe. Save the arena address and deployment block.
+2. The keeper wallet is `0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908`, with 10 MON at launch acceptance. Use the existing arena and its actual deployment block. Public `/setup` and `/api/deployment` no longer create another contract.
 3. Set ARENA_CONTRACT_ADDRESS, ARENA_FROM_BLOCK and KEEPER_FROM_BLOCK from the actual deployment receipt. Give the keeper a private persistent KEEPER_STATE_DIR and a separate public KEEPER_HEALTH_PATH. Store an encrypted keystore/password outside the checkout using KEEPER_KEYSTORE_PATH and KEEPER_PASSWORD_FILE. Raw KEEPER_PRIVATE_KEY is rejected. Fund only the keeper's MON gas balance.
 4. Run the website and keeper as separate processes/users. Run npm run monitor independently with read-only RPC access and configure external alerting. See [ops/RECOVERY.md](ops/RECOVERY.md) for service templates, limitations and exact recovery steps.
 5. In an incident, use the independent Safe to call revokeRevealer(), not a button on the game server. Export an unsigned, simulated Safe Transaction Builder import with npm run governance -- revoke --output revoke.json. Two or more configured owners must approve and execute in Safe. Revocation pauses deposits and battle starts; anyone can finalize interrupted rounds for full fee-free participant claims. Replace the keeper only on a clean host.
@@ -91,7 +93,7 @@ Previously settled demo records retain their recorded payouts. On migration to h
 
 The keeper cannot directly withdraw participant banks or change a bound vote, but can influence results through omitted reveals. A compromised governance quorum can cancel unfinished matches or appoint a malicious keeper. The arena is not upgradeable and exposes no governance bank sweep. This is an explicit trusted-service/governance model, not proof against operator manipulation.
 
-A user-created Safe and funded keeper address have been verified read-only on Monad; the Netlify Free frontend and HTTPS API on the existing VPS now run public fictional staging, while a live arena and external alerts remain unconfigured. The owner completed root-only VPS keystore/password setup on 22 October; see [security/keeper-credentials.json](security/keeper-credentials.json). Keeper remains inactive pending deployment and release checks. See ops/NETLIFY.md and security/netlify-staging.json. Public addresses alone do not start the service. Encrypted storage protects keys at rest; the running process still handles decrypted keys. Root/process compromise remains dangerous. The independent monitor's bounded chain scan still reports incomplete coverage. The production keeper now uses a durable event index and signed transaction journal: at most one pending nonce, exact-byte rebroadcast after ambiguous sends, bounded same-call/nonce fee replacement and explicit stop on unknown nonce use. Confirmations and canonical receipt hashes are checked. Event ranges are at most 100 blocks and split further on RPC capacity errors. Reorgs rebuild the public index without discarding signed transactions. Work is bounded per cycle; host throughput and external alert delivery still require staging. See [ops/VPS.md](ops/VPS.md) for the prepared deployment runbook and [security/durable-keeper.json](security/durable-keeper.json) for test evidence. The demo remains independent on its existing state directory.
+The live Netlify frontend proxies to a separate VPS live API on loopback :3001, using /etc/chog-arena/live.env and /var/lib/chog-live-web. The original VPS demo remains on :3000, with its old configuration/database and SSH staging endpoint intact; the local :3104 demo also remains available. Keeper uses systemd credentials, private durable SQLite state and a public sanitized heartbeat. Health-only Telegram checks cover RPC, governance, MON and heartbeat, with battle scans disabled. Root/process compromise remains dangerous because the running keeper handles its decrypted key. The durable queue permits at most one pending nonce, exact-byte rebroadcast, bounded same-call/nonce fee replacement and canonical receipt confirmation. See [ops/LIVE.md](ops/LIVE.md) for startup, acceptance and rollback.
 
 The live website maintains its own public index, refreshes dirty round snapshots in bounded batches and no longer rescans every historical match/request through RPC. NFT transfer events mark stale requests. Recent contests still shows eight matches; wallet reward discovery uses pages of 50 of that wallet's completed paid-bet matches, with controls to check earlier rewards. Onchain ownership, votes and payouts remain authoritative; indexing uses three-block confirmation lag and can temporarily show a synchronization message.
 
@@ -131,9 +133,9 @@ real funds. The owner reviews/signs a concrete deployment separately in Rabby.
 The owner subsequently sent the deployment in Rabby. The actual receipt, exact
 creation input, runtime/immutable values, Safe, keeper and game rules were checked
 against the prepared bundle; see `security/arena-deployment.json`. The paid gas
-fee was 0.742794903 MON. This confirms deployment, not public launch: the ordinary
-web/keeper guard remains closed pending operational rehearsal. Matching-source
-publication is tracked separately and must not be confused with bytecode checking.
+fee was 0.742794903 MON. The owner subsequently authorized the live launch, completed on 23 October; see
+security/live-launch.json. Source publication and a real trial battle were explicitly
+declined. Local source/bytecode matching passed; this is not a source publication.
 
 Display numbers can differ from token IDs: contract token 1090 is named CHOG #582. The importer reads each tokenURI instead of guessing image filenames. The ten optimized sample images come from their corresponding OpenSea item pages; original IPFS references remain in `data/collection.json`.
 
