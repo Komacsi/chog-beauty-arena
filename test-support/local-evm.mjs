@@ -9,8 +9,9 @@ function binary(){
   if(!arch || !['linux','darwin','win32'].includes(process.platform))throw Error('Unsupported Anvil test platform');
   return require.resolve('@foundry-rs/anvil-'+process.platform+'-'+arch+'/bin/anvil'+(process.platform==='win32'?'.exe':''));
 }
-export async function startLocalEvm({accounts=6,timestamp,forkUrl,forkBlockNumber,stepsTracing=false}={}){
-  const args=['--host','127.0.0.1','--port','0','--chain-id','1337','--hardfork','shanghai','--accounts',String(accounts)];
+export async function startLocalEvm({accounts=6,timestamp,forkUrl,forkBlockNumber,stepsTracing=false,chainId=1337}={}){
+  if(!Number.isSafeInteger(chainId)||chainId<1)throw Error('Invalid local test chain ID');
+  const args=['--host','127.0.0.1','--port','0','--chain-id',String(chainId),'--hardfork','shanghai','--accounts',String(accounts)];
   if(stepsTracing)args.push('--steps-tracing');
   if(timestamp!==undefined)args.push('--timestamp',String(timestamp));
   if(forkUrl){
@@ -40,7 +41,7 @@ export async function startLocalEvm({accounts=6,timestamp,forkUrl,forkBlockNumbe
       // Drain startup diagnostics without printing generated disposable keys.
       child.stderr.on('data',data=>{diagnostics=(diagnostics+data.toString()).slice(-4096);});
     });
-    provider=new JsonRpcProvider(url,1337,{cacheTimeout:-1,batchMaxCount:1});provider.pollingInterval=10;
+    provider=new JsonRpcProvider(url,chainId,{cacheTimeout:-1,batchMaxCount:1});provider.pollingInterval=10;
     if(timestamp!==undefined)await provider.send('anvil_setBlockTimestampInterval',[0]);
     return {provider,url,close};
   }catch(error){await close();throw error;}

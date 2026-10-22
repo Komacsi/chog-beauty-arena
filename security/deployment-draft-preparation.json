@@ -1,0 +1,66 @@
+{
+  "createdAt": "2026-10-22T20:27:05.931Z",
+  "compiler": "0.8.30+commit.73712a01.Emscripten.clang",
+  "contract": "BeautyArena.sol:BeautyArena",
+  "optimizerRuns": 200,
+  "evmVersion": "shanghai",
+  "sourceCount": 15,
+  "sourceInputSha256": "70c519bd6abb678dfecfa84ce0b54739e03159c9612530c42f3319f0376e2a3f",
+  "creationBytecodeHash": "0x77d268dd2950a9f2e21ffbc60d6ae84c419fa95584ee1ffa7745ea143e10199e",
+  "initcodeHash": "0x9a44b3dfba95ffb491ab1bc2bf9cc3ce46aaec6fd308cd3466357990e9df0662",
+  "addresses": {
+    "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+    "collection": "0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763",
+    "treasury": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+    "revealer": "0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908",
+    "governance": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d"
+  },
+  "deployer": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+  "predictedAddress": "0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5",
+  "nonce": 2,
+  "maximumGasCostWei": "903855464000000000",
+  "chog": {
+    "chainId": 143,
+    "block": 115706604,
+    "blockHash": "0xc357ce882a0275331c01b22821c093fe4d6c81f6a8536c39790e67eaea01faac",
+    "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+    "proxyCodeHash": "0x391069fc41b89a13233652faba0f0a5066d6825985125f24e2eb66e965eb407a",
+    "implementation": "0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8",
+    "implementationCodeHash": "0x6dda419a8059dd56106bc3bc80bb22ffbe6e5a6f37bf42bf3a655a843e341c26",
+    "controller": "0xa7283d07812a02afb7c09b60f8896bcea3f90ace",
+    "pool": "0x116e7d070f1888b81e1e0324f56d6746b2d7d8f1",
+    "initialized": true,
+    "graduated": true,
+    "decimals": 18,
+    "controllerWord": "0x000000000000000000000000a7283d07812a02afb7c09b60f8896bcea3f90ace",
+    "flagsWord": "0x000000000000000000000101116e7d070f1888b81e1e0324f56d6746b2d7d8f1",
+    "sourceVerified": false,
+    "scope": "Exact reviewed identity and storage assumptions at one block; not source verification or release approval."
+  },
+  "governance": {
+    "address": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d",
+    "version": "1.5.0",
+    "threshold": 2,
+    "owners": [
+      "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+      "0xbB3e1fD0962676D04B77EFf69c21Fa51692A5338",
+      "0x6084D9f004206E4d548AEA2b694411CC6F07f6e5"
+    ]
+  },
+  "release": {
+    "realFundsEnabled": false,
+    "blockingFindings": [
+      "SEC-03",
+      "SEC-04"
+    ],
+    "acceptedRisks": [
+      "SEC-02",
+      "CHOG-SOURCE"
+    ],
+    "trustModel": "safe-governed-authorized-revealer",
+    "message": "Real-token deployment is disabled pending security fixes. Demo remains available."
+  },
+  "transactionsSigned": 0,
+  "transactionsSent": 0,
+  "scope": "Prepared unsigned request and source verification bundle. Any wallet request/final send is a separate human action. Prediction depends on the unchanged nonce; not an existing contract."
+}

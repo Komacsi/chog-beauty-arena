@@ -224,3 +224,11 @@ The owner explicitly answered “Да, принимаю этот риск для
 ## Deployment address confirmation, 22 October 2026
 
 The owner explicitly confirmed `0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D` both as the wallet paying deployment gas and as the immutable recipient of the 1% payout fee, after being offered the Safe alternative and informed that treasury cannot be changed after deployment. The fee recipient is this individual signer, not a 2-of-3 withdrawal policy. Safe governance and the separate keeper retain their previously supplied addresses. See security/deployment-addresses.json. This supersedes the earlier unconfirmed-deployer note, but confirms address selection only: no deployment was signed/broadcast and real funds remain disabled.
+
+## Unsigned deployment review and owner handoff, 22 October 2026
+
+Prepared a reproducible 15-source verification bundle and exact zero-value EIP-1559 creation request with the confirmed addresses. The pinned reviewed creation hash and self-contained recompilation match the existing artifact. Public RPC simulation and CHOG/Safe/nonce/gas checks passed. The nonce-2 address is a prediction, not a deployed arena. See ops/DEPLOYMENT.md and security/deployment-draft-preparation.json.
+
+An isolated Anvil fork with local chain ID 143 executed this exact request using fake MON and impersonation, behind the read-only gateway. The post-deployment verifier checked the resulting receipt, runtime/immutables, owner/revealer, fee, minimum, duration and initial counters. The local chain ID intentionally matches to test the request; this is not a real deployment. Evidence is security/deployment-draft-fork.json.
+
+The owner gets a separate static loopback-only review page. It validates Host/Origin, serves an explicit allowlist, has no POST/deployment API and never reads credentials. Its browser code rechecks account/network/CHOG/Safe/nonce/gas before the owner's explicit wallet action; changed wallet state invalidates the review and a wallet request is never automatically retried. Contract creation/signing remains a human action in Rabby. Neither normal server nor keeper release guards were changed, no mainnet transaction was sent, and no demo or production credential state was touched.

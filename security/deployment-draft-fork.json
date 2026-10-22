@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-10-22T20:31:23.742Z",
+  "upstreamChainId": 143,
+  "forkBlock": 115706604,
+  "localChainId": 143,
+  "environment": "Disposable loopback Anvil through read-only upstream gateway; local chain 143 intentionally tests the exact prepared request",
+  "preparedInitcodeHash": "0x9a44b3dfba95ffb491ab1bc2bf9cc3ce46aaec6fd308cd3466357990e9df0662",
+  "preparedNonce": 2,
+  "constructorAndRuntimeVerification": "passed",
+  "predictedAddressMatchesLocalReceipt": true,
+  "governanceAndChogRechecked": true,
+  "localGasUsed": "3659120",
+  "transactionsSentToLocalFork": 1,
+  "realTransactionsSent": 0,
+  "mainnetArenaDeployed": false,
+  "limitations": "Local Shanghai EVM, fake MON and impersonation only; no real key/signing or mainnet transaction. Not a mainnet gas/consensus proof or launch approval."
+}
