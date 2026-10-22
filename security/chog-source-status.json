@@ -59,7 +59,7 @@
     }
   },
   "transactionsSent": 0,
-  "limitations": "Gateway/network failures do not establish that source is unavailable elsewhere. No matching verified source was obtained in this check. Administrative powers and implementation behavior are not fully audited; SEC-04 remains open.",
+  "limitations": "Matching verified source was not obtained. Bounded deployed-bytecode review and local fork tests passed; this is not full source/compiler verification. SEC-04 remains open for source provenance. See ops/CHOG_REVIEW.md.",
   "assetSnapshot": "security/asset-snapshot-20261022.json",
   "sourcifySimilarity": {
     "verificationId": "a5bf2a58-9ebc-4515-b6ec-11ea269d6a10",
@@ -67,5 +67,12 @@
     "result": "no_similar_match_found",
     "creationMatch": null,
     "runtimeMatch": null
+  },
+  "bytecodeReview": {
+    "forkBlock": 115693565,
+    "passed": true,
+    "sourceVerified": false,
+    "evidence": "security/chog-bytecode-review.json",
+    "scope": "ops/CHOG_REVIEW.md"
   }
 }

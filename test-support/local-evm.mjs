@@ -9,8 +9,9 @@ function binary(){
   if(!arch || !['linux','darwin','win32'].includes(process.platform))throw Error('Unsupported Anvil test platform');
   return require.resolve('@foundry-rs/anvil-'+process.platform+'-'+arch+'/bin/anvil'+(process.platform==='win32'?'.exe':''));
 }
-export async function startLocalEvm({accounts=6,timestamp,forkUrl,forkBlockNumber}={}){
+export async function startLocalEvm({accounts=6,timestamp,forkUrl,forkBlockNumber,stepsTracing=false}={}){
   const args=['--host','127.0.0.1','--port','0','--chain-id','1337','--hardfork','shanghai','--accounts',String(accounts)];
+  if(stepsTracing)args.push('--steps-tracing');
   if(timestamp!==undefined)args.push('--timestamp',String(timestamp));
   if(forkUrl){
     const url=new URL(forkUrl);
