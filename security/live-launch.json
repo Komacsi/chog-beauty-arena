@@ -119,7 +119,12 @@
       "limitation": "Read-only checks; no human Rabby connection or real trial battle was performed."
     },
     "publicBrowserLiveModeObserved": true,
-    "humanRabbyConnection": "not performed: extension unavailable in IAB; owner can connect in ordinary Rabby-enabled browser",
+    "humanRabbyConnection": {
+      "status": "confirmed_by_owner",
+      "ownerAnswer": "Да, кошелёк и NFT отображаются",
+      "operatorDate": "2026-10-23",
+      "scope": "Owner confirms wallet connection and NFT list in Profile; no real trial battle performed."
+    },
     "realTrialBattle": "declined by owner; not performed or marked passed",
     "sourcePublication": "declined; no package submitted",
     "mainnetTransactionsSignedOrSentDuringLaunch": 0
@@ -141,5 +146,15 @@
     "scripts/monitor.mjs": "80a60699fd0f0b47ebaaaad521cae34967a4f214b62093b01dee73145604f117",
     "public/bundle.js": "c2ff0fa055ba2fff2b6b22aa8ef22892ac197c238f4c847024c16e19c1d09fae"
   },
-  "realFundsEnabled": true
+  "realFundsEnabled": true,
+  "artworkFollowUp": {
+    "operatorDate": "2026-10-23",
+    "status": "complete",
+    "runtime": "/opt/chog-releases/artwork-20261023",
+    "evidence": "security/nft-artwork.json",
+    "previews": 1969,
+    "sourceFilesRetained": true,
+    "catalogSha256": "c063b0018b4584c0a599909243a1f7b67d1fd107add17795c854ee605b2df21e",
+    "keeperAndDemoUnchanged": true
+  }
 }

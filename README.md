@@ -58,7 +58,7 @@ Example: two different wallets have winning totals of 10,000 and 30,000, with a 
 
 ## Run locally
 
-Requires Node.js 24+. Uses built-in SQLite. Ten sample images are bundled; other metadata and images are fetched only as needed from the collectionвЂ™s onchain tokenURI through fixed IPFS gateways. The cache lives under ARENA_STATE_DIR/nft-cache. Gateway failures show placeholders and a Retry control without discarding the ownership list.
+Requires Node.js 24+. Uses built-in SQLite. Ten sample images are bundled; other metadata and images are fetched only as needed from the collectionвЂ™s onchain tokenURI through fixed IPFS gateways. The cache lives under ARENA_STATE_DIR/nft-cache. All 1,969 source images and metadata are now cached on the live VPS, with 384-pixel WebP previews. Cached previews bypass the remote queue and stale display metadata revalidates in the background. See [ops/NFT_ARTWORK.md](ops/NFT_ARTWORK.md). Gateway failures for any uncached/changed resource show placeholders and a Retry control without discarding the ownership list.
 
 ```sh
 npm ci --ignore-scripts

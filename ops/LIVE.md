@@ -15,7 +15,9 @@ creation block `115710675`. Use this existing contract; do not deploy another.
 | Original VPS demo, chog-web.service | /opt/chog-arena, public.env unchanged | /var/lib/chog-web, 127.0.0.1:3000, SSH staging :8080 |
 | Original local demo | scripts/demo.mjs, existing manual-preview state directory | http://localhost:3104, preserved history |
 
-The live symlink targets `/opt/chog-releases/live-20261023-credentials`.
+The initial live symlink targeted `/opt/chog-releases/live-20261023-credentials`.
+The subsequent artwork cache improvement uses `/opt/chog-releases/artwork-20261023`;
+see [NFT_ARTWORK.md](NFT_ARTWORK.md). Game contract and keeper are unchanged.
 Keeper/live API/timer are enabled at boot. The web process cannot read the
 keeper's private journal. Only a sanitized 0644 heartbeat is shared at
 `/run/chog-keeper-health/status.json`. Source keystore/password files remain
@@ -38,8 +40,8 @@ node scripts/check-live-runtime.mjs https://chog-beauty-arena.netlify.app NEW_RE
 
 It checks pinned arena/CHOG, Safe, heartbeat, index, MON, nonces, direct onchain
 NFT discovery and an on-demand image. The browser showed LIVE · MONAD, 24-hour
-battles and the live profile. Rabby connection remains a human browser check:
-the in-app browser has no wallet extension. No mock connection is counted as real.
+battles and the live profile. The owner subsequently confirmed that Rabby connects and NFTs appear in Profile.
+The in-app browser has no wallet extension; no mock connection is counted as real.
 The owner declined a trial battle and Sourcify; neither is marked passed.
 
 See `../security/live-launch.json` for evidence and limitations. Earlier documents

@@ -15,7 +15,7 @@
     "submitted": false,
     "scope": "Owner explicitly declined Sourcify. Remove source publication from the launch plan; do not submit the package to Sourcify or substitute another public verifier without new authorization. Local arena source/bytecode matching already passed; publication is not required by the game or keeper."
   },
-  "remainingWork": "Owner may verify connecting Rabby in an ordinary browser; no real trial battle or source publication requested.",
+  "remainingWork": "No pending launch checks. Owner confirmed Rabby connection and NFTs. Complete artwork caching and preview delivery passed; see security/nft-artwork.json.",
   "realFundsEnabled": true,
   "launchAuthorization": {
     "operatorDate": "2026-10-23",

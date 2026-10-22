@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {mkdtemp,rm,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {CHOG_COLLECTION} from '../lib/wallet-nfts.mjs';
 import {resolve,join,sep} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createNftCatalog,ipfsPath,catalogGateways} from '../lib/nft-catalog.mjs';
@@ -41,4 +43,27 @@ test('gateway failures retry a fixed alternate gateway and can recover on a late
 test('an incomplete image response is never cached as a complete NFT',async t=>{
   const f=await fixture(t,{fetcher:async url=>url.endsWith('.json')?Response.json({name:'CHOG',image}):new Response(png,{status:206,headers:{'content-range':'bytes 0-11/1000'}})});
   await assert.rejects(f.catalog.getImage(1),/Incomplete NFT resource/);
+});
+
+test('prepared WebP previews bypass the remote queue and survive metadata expiry during an outage',async t=>{
+  const f=await fixture(t,{concurrency:1,readTokenUri:async()=>{throw Error('RPC offline');}});
+  const webp=Buffer.from('524946460400000057454250','hex'),hash=createHash('sha256').update(image).digest('hex').slice(0,16);
+  await writeFile(resolve(f.base.cacheDir,'1.json'),JSON.stringify({collection:CHOG_COLLECTION,tokenId:1,name:'CHOG #1462',imageUri:image,attributes:[],cachedAt:Date.now()-2*86400000}));
+  await writeFile(resolve(f.base.cacheDir,'1-'+hash+'.image.thumb.webp'),webp);
+  assert.equal((await f.catalog.getMetadata(1)).name,'CHOG #1462');
+  assert.deepEqual(await f.catalog.getImage(1),{bytes:webp,type:'image/webp'});
+  await new Promise(done=>setImmediate(done)); // Revalidation failure is handled.
+  assert.equal((await f.catalog.getMetadata(1)).name,'CHOG #1462');
+  assert.equal(f.calls.length,0);
+});
+
+test('a slow remote NFT does not hold a prepared preview behind its download slot',{timeout:5000},async t=>{
+  let unblock,entered;
+  const started=new Promise(done=>{entered=done;});
+  const f=await fixture(t,{concurrency:1,readTokenUri:async()=>{entered();await new Promise(done=>{unblock=done;});return uri;}});
+  const webp=Buffer.from('524946460400000057454250','hex'),hash=createHash('sha256').update(image).digest('hex').slice(0,16);
+  await writeFile(resolve(f.base.cacheDir,'1.json'),JSON.stringify({collection:CHOG_COLLECTION,tokenId:1,name:'Cached',imageUri:image,attributes:[],cachedAt:Date.now()}));
+  await writeFile(resolve(f.base.cacheDir,'1-'+hash+'.image.thumb.webp'),webp);
+  const blocked=f.catalog.getMetadata(2);await started;
+  try{assert.deepEqual((await f.catalog.getImage(1)).bytes,webp);}finally{unblock();await blocked;}
 });
