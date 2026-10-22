@@ -1,5 +1,30 @@
 # Owner-reviewed arena deployment
 
+## Actual owner-signed deployment
+
+On 22 October 2026 the owner sent transaction
+`0x705c50b552a7e132bf44eff7a5f345cad7ea5bc7bb748e092eddb0103cfb158a`.
+The verified arena is `0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5`, created at
+block **115710675**. This address is now confirmed by the mainnet receipt, not just
+the previous prediction. Creation input and nonce, deployed runtime/immutables,
+governance, revealer and initial game rules/counters passed the read-only verifier.
+Evidence: security/arena-deployment.json. Actual gas fee: **0.742794903 MON**.
+
+The final wallet-signed gas limit/fees differ from the preparer's draft; constructor
+data, sender, nonce, chain and zero value match. The record preserves actual signed
+gas fields. Wallet review is authoritative for the final gas cost limit: the draft
+quote is not a guarantee that wallet software will preserve its gas fields.
+
+Do not repeat contract creation. Preserve the prepared source bundle at
+artifacts/deployment-review-final-20261022 for subsequent verification. Keep
+the original demo configuration and data separate. Normal web/keeper guards remain
+closed; source publication and controlled operational rehearsal are separate next
+steps. The VPS demo still uses its blank arena/from-block fields and keeper is
+inactive. The address and block above are the values to use when preparing the
+separate controlled keeper/runtime configuration.
+
+## Preparation history and reproduction
+
 The confirmed deployer/immutable treasury is
 `0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D` (Monad 143). Safe governance is
 `0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d`; keeper is the separate

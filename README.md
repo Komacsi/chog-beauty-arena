@@ -117,6 +117,7 @@ The builder compiles the app, copies an explicit set of runtime files and instal
 - Monad mainnet: chain ID 143
 - Collection: `0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763`
 - CHOG: `0x350035555e10d9afaf1566aaebfced5ba6c27777`
+- Deployed arena: `0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5`, block `115710675`
 - Treasury: `0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D`
 
 On 22 October 2026 the owner confirmed this same address as deployer and recipient
@@ -126,6 +127,13 @@ controlled by this individual wallet. Governance remains the separate Safe
 `0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908`. Address confirmation is recorded in
 `security/deployment-addresses.json`; it does not deploy the contract or enable
 real funds. The owner reviews/signs a concrete deployment separately in Rabby.
+
+The owner subsequently sent the deployment in Rabby. The actual receipt, exact
+creation input, runtime/immutable values, Safe, keeper and game rules were checked
+against the prepared bundle; see `security/arena-deployment.json`. The paid gas
+fee was 0.742794903 MON. This confirms deployment, not public launch: the ordinary
+web/keeper guard remains closed pending operational rehearsal. Matching-source
+publication is tracked separately and must not be confused with bytecode checking.
 
 Display numbers can differ from token IDs: contract token 1090 is named CHOG #582. The importer reads each tokenURI instead of guessing image filenames. The ten optimized sample images come from their corresponding OpenSea item pages; original IPFS references remain in `data/collection.json`.
 
