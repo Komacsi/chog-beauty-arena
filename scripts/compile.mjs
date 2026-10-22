@@ -11,9 +11,15 @@ export function compile(extra={}) {
   if(errors.length)throw new Error(errors.map(e=>e.formattedMessage).join('\n'));
   return output.contracts;
 }
+export function compileV2(extra={}){
+  return compile({'BeautyArenaV2.sol':{content:readFileSync(resolve(root,'contracts/BeautyArenaV2.sol'),'utf8')},...extra});
+}
 if(process.argv[1]===resolve(import.meta.filename)) {
-  const compiled=compile()['BeautyArena.sol'].BeautyArena;
+  const contracts=compileV2();
   mkdirSync(resolve(root,'artifacts'),{recursive:true});
-  writeFileSync(resolve(root,'artifacts/BeautyArena.json'),JSON.stringify({abi:compiled.abi,bytecode:'0x'+compiled.evm.bytecode.object},null,2));
-  console.log('BeautyArena compiled');
+  for(const name of ['BeautyArena','BeautyArenaV2']){
+    const compiled=contracts[name+'.sol'][name];
+    writeFileSync(resolve(root,'artifacts',name+'.json'),JSON.stringify({abi:compiled.abi,bytecode:'0x'+compiled.evm.bytecode.object},null,2));
+  }
+  console.log('BeautyArena (current live) and BeautyArenaV2 (pending deployment) compiled');
 }

@@ -1,0 +1,76 @@
+{
+  "checkedAt": "2026-10-22T23:52:58.747Z",
+  "status": "code_tested_unsigned_V2_ready_for_owner_signature",
+  "activeLiveArena": "0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5",
+  "activeLiveRulesVersion": 7,
+  "pendingRulesVersion": 8,
+  "newMainnetContractDeployed": false,
+  "liveCutoverPerformed": false,
+  "rules": {
+    "participants": "creator and accepting wallet fixed per round at acceptance",
+    "freeVotes": "rejected for both participants",
+    "paidBets": "allowed for both participants; zero votes from all their bets",
+    "spectators": "one vote per NFT plus one from first CHOG bet",
+    "payouts": "all accepted CHOG bets retain bank and payout eligibility"
+  },
+  "validation": {
+    "nodeTests": 151,
+    "failures": 0,
+    "V2ContractIntegrationTests": 2,
+    "V2DemoTests": 1,
+    "V2DraftPinTests": 1,
+    "existingV1CreationBytecodeUnchanged": true,
+    "disposableFork": {
+      "checkedAt": "2026-10-22T23:45:26.061Z",
+      "upstreamChainId": 143,
+      "forkBlock": 115745952,
+      "localChainId": 143,
+      "environment": "Disposable loopback Anvil through read-only upstream gateway; local chain 143 intentionally tests the exact prepared request",
+      "preparedInitcodeHash": "0x338ce01c6b1b53f940c1b280a40bae9a6c8d96187a26fa4a6ab11c003a0bea87",
+      "preparedNonce": 3,
+      "constructorAndRuntimeVerification": "passed",
+      "predictedAddressMatchesLocalReceipt": true,
+      "governanceAndChogRechecked": true,
+      "localGasUsed": "3764452",
+      "transactionsSentToLocalFork": 1,
+      "realTransactionsSent": 0,
+      "mainnetArenaDeployed": false,
+      "limitations": "Local Shanghai EVM, fake MON and impersonation only; no real key/signing or mainnet transaction. Not a mainnet gas/consensus proof or launch approval."
+    },
+    "realTransactionsSent": 0
+  },
+  "liveArenaSnapshot": {
+    "rounds": 0,
+    "requests": 0,
+    "bankCHOGUnits": "0",
+    "note": "Read-only snapshot; recheck immediately before cutover"
+  },
+  "demo": {
+    "newRoundsVersion": 8,
+    "existingEightRoundsRetained": true,
+    "backup": "before-participant-v8-20261023.sqlite"
+  },
+  "pendingTransaction": {
+    "directory": "artifacts/participant-v2-ready-20261023",
+    "reviewUrl": "http://127.0.0.1:3113/",
+    "deployer": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+    "predictedAddress": "0x8Cd36066717FF98D86FebC3294A98aC2f0095d05",
+    "nonce": 3,
+    "initcodeHash": "0x338ce01c6b1b53f940c1b280a40bae9a6c8d96187a26fa4a6ab11c003a0bea87",
+    "maximumGasCostWei": "929574104000000000",
+    "creationBytecodeHash": "0x34bfa423690d3a62ffabebb06dec6b99cbdb056a4fab5eafc548333cf1a6f0cd",
+    "predictionIsNotDeployment": true
+  },
+  "limitations": [
+    "Current real arena is immutable and still uses V1 rules until verified deployment and cutover.",
+    "Participant addresses are excluded; the accepted multi-wallet/Sybil limitation remains.",
+    "151 is the combined regression suite, not 151 distinct V2 contract tests."
+  ],
+  "frontend": {
+    "netlifyDeploy": "6adaa1ece5bcc60e2995c51a",
+    "V1Compatible": true,
+    "rolePanelCheckedInReadOnlyLocalFixture": true,
+    "participantVoteButtonsDisabled": true,
+    "participantBetButtonAvailable": true
+  }
+}

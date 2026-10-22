@@ -45,9 +45,9 @@ test('HTTP flow: empty lobby, profile ownership, cancel, accept, concurrent matc
     const nftPayload={roundId:1,tokenIds:[a[0],a[1]],commitment:payload.commitment,sealedChoice:payload.sealedChoice};
     await request('holder-votes',{...nftPayload,side:0},400);await request('holder-votes',{...nftPayload,salt:'secret'},400);
     await request('holder-votes',{...nftPayload,tokenIds:[a[0],b[0]]},400);assert.equal((await request('state?round=1')).usedNfts.length,0);
-    await request('holder-votes',nftPayload);await request('holder-votes',nftPayload,400);
-    await request('holder-votes',{...nftPayload,tokenIds:[a[2]]});await request('commit',{...payload,roundId:1});
-    s=await request('state?round=1');assert.equal(s.round.committedCount,6);assert.equal(s.betCount,1);assert.equal(s.usedNfts.length,3);assert.equal(s.round.votesA,0);assert.equal(s.round.holderEntries,undefined);
+    const forbidden=await request('holder-votes',nftPayload,400);assert.match(forbidden.error,/participants cannot vote/);
+    await request('holder-votes',{...nftPayload,tokenIds:[a[2]]},400);await request('commit',{...payload,roundId:1});
+    s=await request('state?round=1');assert.equal(s.round.committedCount,3);assert.equal(s.betCount,1);assert.equal(s.usedNfts.length,0);assert.equal(s.round.votesA,0);assert.equal(s.round.holderEntries,undefined);
     await request('commit',{...payload,roundId:2,amount:'0'},400);assert.equal((await request('state?round=999')).round,null);
     const details=await request('nfts/'+a[0]);assert.equal(details.tokenId,a[0]);assert.ok(details.name.startsWith('CHOG #'));assert.ok(details.image.startsWith('/nfts/'));
     assert.equal((await fetch(base+'/api/nfts/'+a[0]+'/image',{redirect:'manual'})).status,302);

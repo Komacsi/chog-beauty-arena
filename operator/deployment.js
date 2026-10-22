@@ -10,13 +10,14 @@ function row(label,value){const dt=document.createElement('dt'),dd=document.crea
 try{
   const response=await fetch('/deployment.json',{cache:'no-store'});if(!response.ok)throw Error('Не удалось получить подготовленную транзакцию.');draft=await response.json();validateDeploymentDraft(draft);
   row('Сеть','Monad mainnet · 143');row('Кошелёк развёртывания',DEPLOYER);row('Получатель комиссии 1%',draft.addresses.treasury);row('Управляющий Safe',draft.addresses.governance);row('Keeper',draft.addresses.revealer);row('Токен CHOG',draft.addresses.token);row('Коллекция NFT',draft.addresses.collection);row('Максимальная комиссия',formatEther(draft.maximumGasCostWei)+' MON');row('Nonce',String(BigInt(draft.request.nonce)));row('Расчётный адрес контракта',draft.predictedAddress);row('Длительность боя','24 часа');row('Минимальная ставка','5000 CHOG');$('initcode').textContent=draft.initcodeHash;
+  if(draft.rulesVersion===8){$('deployment-intro').textContent='Новая арена V2 в Monad mainnet. Участники боя могут делать ставки CHOG, но не голосуют. Текущая реальная арена продолжает работать; эта транзакция сама не переключит сайт и keeper.';row('Новые правила V2','Участники боя не голосуют. Их ставки CHOG участвуют в выплатах без голосов.');row('Статус','Новый контракт; текущая арена не переключается этой транзакцией.');}
   status('Транзакция подготовлена. Подключи Rabby для проверки.');connect.disabled=false;
 }catch(error){showError(error);}
 connect.addEventListener('click',async()=>{
   if(requestStarted)return;connect.disabled=true;reset();
   try{
     const candidate=announced[0]||window.ethereum?.providers?.find(p=>p.isRabby)||(window.ethereum?.isRabby?window.ethereum:null);
-    if(!candidate)throw Error('Rabby не найден. Открой http://127.0.0.1:3110/ в Chrome, Brave или другом браузере с Rabby.');
+    if(!candidate)throw Error('Rabby не найден. Открой эту страницу в Chrome, Brave или другом браузере с Rabby.');
     if(injected!==candidate){injected=candidate;injected.on?.('accountsChanged',reset);injected.on?.('chainChanged',reset);}
     await injected.request({method:'eth_requestAccounts'});
     if(BigInt(await injected.request({method:'eth_chainId'}))!==143n)await injected.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x8f'}]});

@@ -20,6 +20,14 @@ test('deployment draft rejects a substituted build, recipient, constructor, nonc
   const changes=[v=>{v.request.to=DEPLOYER;},v=>{v.request.from='0x'+'11'.repeat(20);},v=>{v.request.chainId='0x1';},v=>{v.request.value='0x1';},v=>{v.request.data=v.request.data.slice(0,-2)+'00';},v=>{v.addresses.treasury='0x'+'11'.repeat(20);},v=>{v.request.nonce='0x4';},v=>{v.request.gas='0x0';},v=>{v.maximumGasCostWei='1';},v=>{v.request.accessList=[];}];
   for(const change of changes){const value=structuredClone(original);change(value);assert.throws(()=>validateDeploymentDraft(value));}
 });
+test('V2 deployment has its own pinned creation build and cannot be relabelled as V1',async()=>{
+  const v2=JSON.parse(await readFile(new URL('../artifacts/BeautyArenaV2.json',import.meta.url),'utf8'));
+  const options={nonce:3,gasLimit:6000000n,maxFeePerGas:202000000000n,maxPriorityFeePerGas:2000000000n,rulesVersion:8};
+  const value=await deploymentDraft(v2,options);assert.equal(value.rulesVersion,8);validateDeploymentDraft(value);
+  const downgrade=structuredClone(value);delete downgrade.rulesVersion;assert.throws(()=>validateDeploymentDraft(downgrade),/bytecode changed/);
+  await assert.rejects(deploymentDraft(artifact,options),/bytecode differs/);
+  await assert.rejects(deploymentDraft(v2,{...options,rulesVersion:9}),/unknown rules/);
+});
 test('wallet review refuses wrong account/network without any signing or transaction method',async()=>{
   const value=await draft();
   for(const [account,chain]of [['0x'+'11'.repeat(20),'0x8f'],[DEPLOYER,'0x1']]){

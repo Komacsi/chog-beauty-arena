@@ -9,6 +9,8 @@ function fixture(){
   const state=d.createState(),now=Date.now(),account=d.user(state,'a').address,opponent=d.user(state,'b').address;
   for(let id=0;id<56;id++)state.ownership[id]=account;state.ownership[100]=opponent;
   d.createChallenge(state,'a',1,now);const round=d.acceptChallenge(state,'b',1,100,now,true);
+  // Preserve regression coverage for existing v7 rounds; v8 roles have dedicated tests.
+  round.protocolVersion=7;
   const base=(id,side)=>({arena:DEMO_ARENA,chainId:143,roundId:1,account:d.user(state,id).address,side,tokenId:side?100:1,salt:makeSalt()});
   function holder(id,side,tokenIds){const b={...base(id,side),amount:'0',holderKey:Math.min(...tokenIds),holderTokenIdsHash:holderTokensHash(tokenIds)};d.commitHolderVotes(state,id,{roundId:1,tokenIds,commitment:makeCommitment(b),sealedChoice:'opaque'},now);return b;}
   function paid(id,side,value=amount){const b={...base(id,side),amount:value.toString(),betNonce:d.nextBetNonce(round,id)};d.commitVote(state,id,{roundId:1,betNonce:b.betNonce,amount:value,commitment:makeCommitment(b),sealedChoice:'opaque'},now);return b;}

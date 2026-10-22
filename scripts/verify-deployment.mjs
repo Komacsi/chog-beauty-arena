@@ -35,6 +35,7 @@ try{
   const values=Object.fromEntries(await Promise.all(methods.map(async method=>[method,String(await arena[method](at))])));
   for(const [method,key]of Object.entries({chog:'token',collection:'collection',treasury:'treasury',revealer:'revealer',owner:'governance'}))requireMatch(values[method].toLowerCase()===DEPLOYMENT_ADDRESSES[key].toLowerCase(),'wrong '+method);
   for(const [method,expected]of Object.entries({FEE_BPS:'100',MIN_STAKE:'5000000000000000000000',DURATION:'86400',UNLOCK_DELAY:'300',REVEAL_DURATION:'3600',currentRoundId:'0',challengeCount:'0'}))requireMatch(values[method]===expected,'unexpected '+method);
+  if(draft.rulesVersion===8){requireMatch(await arena.RULES_VERSION(at)===8n,'wrong V2 rules version');values.RULES_VERSION='8';}
   const [chog,governance]=await Promise.all([validateChogAsset(provider),validateGovernance(provider,values.owner)]);
   requireMatch(governance.threshold===manifest.governance.threshold&&JSON.stringify(governance.owners.map(x=>x.toLowerCase()).sort())===JSON.stringify(manifest.governance.owners.map(x=>x.toLowerCase()).sort()),'governance changed since review');
   const canonical=await provider.getBlock(receipt.blockNumber);requireMatch(canonical?.hash===receipt.blockHash,'deployment block was reorganized');
