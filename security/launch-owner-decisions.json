@@ -1,0 +1,20 @@
+{
+  "recordedAt": "2026-10-22T21:04:46Z",
+  "operatorDate": "2026-10-23",
+  "timezone": "Europe/Moscow",
+  "mainnetTrialBattle": {
+    "status": "declined_by_owner",
+    "ownerAnswer": "не надо пробный бой",
+    "action": "Remove the real trial battle and related requests for NFT-holder wallet addresses from the launch plan.",
+    "evidenceLimit": "No real battle was performed. Existing local fork/EVM and mainnet creation checks remain the actual evidence; this does not mark a real battle as passed."
+  },
+  "sourcePublication": {
+    "destination": "https://sourcify.dev",
+    "status": "awaiting_owner_decision_after_explanation",
+    "ownerAnswer": "а зачем?",
+    "submitted": false,
+    "scope": "Owner requested the purpose of public source verification, not consent. No source package may be submitted based on this answer. Local arena source/bytecode matching already passed; public publication is a separate transparency step."
+  },
+  "remainingWork": "Prepare and check actual runtime/keeper startup, RPC, loaded credential usability and heartbeat without creating a real battle; review the live release decision separately.",
+  "realFundsEnabled": false
+}

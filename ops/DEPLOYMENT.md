@@ -108,11 +108,24 @@ rules/counters and current CHOG/Safe. Localhost RPC results are labeled simulati
 only and never reported as a verified mainnet deployment. A trusted RPC remains
 an assumption. No repeat transaction is sent by this command.
 
-Publish/verify the arena using source-input.json, exact compiler version and
-constructor parameters. Record the verified arena address and deployment block
+If the owner authorizes public source publication, verify the arena using
+source-input.json, exact compiler version and constructor parameters. Local
+source/bytecode matching has already passed; Sourcify publication is a separate
+transparency step, not required by the game or keeper. Record the arena address and deployment block
 only after checking the actual receipt; never configure the prediction as if it
 were deployed. Separately prepare the runtime, start the keeper in controlled
 rehearsal, check automatic opening/payout/refund/recovery, then review the public
 release decision. The normal web/keeper guard stays false for SEC-03 and the
 remaining deployment/rehearsal portion of SEC-04. Existing demo/history stays
 separate and no battle-monitoring expansion is introduced.
+
+## Owner steering, 23 October 2026
+
+The owner explicitly declined the real trial battle. Remove that battle and the
+request for two NFT-holder wallet addresses from the plan. Do not substitute it
+with an unrequested real-money test, or describe the unperformed battle as passed.
+Existing fork/EVM evidence and actual mainnet creation/bytecode checks stand as
+recorded. Continue runtime/keeper startup, RPC and heartbeat checks without a real
+battle, then make the code-reviewed live-release decision separately. The owner's
+question about Sourcify's purpose is not publication consent. See
+security/launch-owner-decisions.json; source submission remains unperformed.
