@@ -160,3 +160,7 @@ The real isolated monitor produced an intentional test alert acknowledged by Tel
 Independent HetrixTools API monitoring completed a controlled DOWN/recovery test;
 see [ops/MONITORING.md](ops/MONITORING.md) for scope and limitations. Keeper and
 the monitor timer remain inactive pending deployment and release checks.
+
+Keeper load validation and the owner's expected 50-person audience are documented in
+[ops/KEEPER_LOAD.md](ops/KEEPER_LOAD.md). The 100-entry slow-RPC reference passed;
+large-load capacity limits and mainnet measurement exclusions remain explicit.
