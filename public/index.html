@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#7547f5"><title>Chog: Beauty Arena</title><link rel="stylesheet" href="/style.css"><script type="module" src="/bundle.js"></script></head>
 <body>
-<header><a class="brand" href="/" aria-label="Chog: Beauty Arena home"><img class="brand-logo" src="/brand/chog-beauty-arena.png?v=20261022" alt="Chog: Beauty Arena" width="1254" height="1254"></a><nav aria-label="Main navigation"><a href="/" id="arena-link">Arena</a><a href="/profile" id="profile-link">Profile</a><a href="/leaderboard" id="leader-link">Leaderboard</a></nav><button id="wallet" class="wallet">Connect wallet</button></header>
+<header><a class="brand" href="/" aria-label="Chog: Beauty Arena home"><img class="brand-logo" src="/brand/chog-beauty-arena.png?v=20261022" alt="Chog: Beauty Arena" width="1254" height="1254"></a><nav aria-label="Main navigation"><a href="/" id="arena-link">Arena</a><a href="/profile" id="profile-link">Profile</a><a href="/leaderboard" id="leader-link">Leaderboard</a></nav><div class="wallet-control"><button type="button" id="wallet" class="wallet" aria-controls="wallet-menu" aria-expanded="false">Connect wallet</button><div id="wallet-menu" class="wallet-menu" hidden><button type="button" id="disconnect-wallet">Disconnect wallet</button></div></div></header>
 <div class="mode-banner" id="mode"></div>
 <main id="content"><p class="loading">Loading the arena…</p></main>
 <div id="toast" role="status" aria-live="polite"></div>

@@ -27,6 +27,19 @@ const contract=()=>new Contract(config.arenaAddress,config.abi,signer);
 async function api(path,body){const r=await fetch('/api/'+path,body===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error);return data;}
 function toast(message){$('#toast').textContent=message;$('#toast').style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').style.display='none',7000);}
 async function run(fn){if(busy)return;busy=true;try{await fn();}catch(e){toast(e.shortMessage || e.message);}finally{try{await refresh();}catch(e){toast(e.shortMessage || e.message);}busy=false;}}
+function setWalletMenu(open){
+  open=Boolean(open && address && config?.mode==='live');
+  $('#wallet-menu').hidden=!open;$('#wallet').setAttribute('aria-expanded',String(open));
+}
+function clearWallet(){
+  walletEpoch++;address='';signer=null;holder=false;owned=[];
+  ownershipLoading=false;ownershipError='';
+  claimWallet='';claimBefore=Number.MAX_SAFE_INTEGER;claimHasMore=false;claimLast=0;
+  nftSelections.clear();holderSelections.clear();
+  if(state){state.claims=[];state.betCount=0;state.usedNfts=[];}
+  setWalletMenu(false);$('#wallet').textContent='Connect wallet';
+  if(config && state)render();
+}
 async function connect(){
   if(!window.ethereum)throw Error('Connect an EVM wallet. Demo mode does not require one.');
   const wallet=new BrowserProvider(window.ethereum);await wallet.send('eth_requestAccounts',[]);await wallet.send('wallet_switchEthereumChain',[{chainId:'0x8f'}]);signer=await wallet.getSigner();address=await signer.getAddress();
@@ -48,7 +61,14 @@ async function refresh(){
       if(!currentWallet())return;owned=found;holder=owned.length>0;ownershipError='';
     }catch(error){if(!currentWallet())return;owned=[];holder=false;ownershipError=error.shortMessage || error.message;}
     ownershipLoading=false;
-    if(state.round){state.betCount=Number(await contract().betCount(state.round.id,address));const usage=await Promise.all(owned.map(id=>contract().unstakedVoteUsed(state.round.id,id)));state.usedNfts=owned.filter((_,i)=>usage[i]);}
+    if(state.round){
+      const readContract=new Contract(config.arenaAddress,config.abi,currentSigner),roundId=state.round.id,tokenIds=[...owned];
+      const betCount=Number(await readContract.betCount(roundId,currentAddress));
+      if(!currentWallet())return;
+      const usage=await Promise.all(tokenIds.map(id=>readContract.unstakedVoteUsed(roundId,id)));
+      if(!currentWallet())return;
+      state.betCount=betCount;state.usedNfts=tokenIds.filter((_,i)=>usage[i]);
+    }
     if(claimWallet!==currentAddress){claimWallet=currentAddress;claimBefore=Number.MAX_SAFE_INTEGER;}
     const page=await api('wallet-rounds?account='+encodeURIComponent(currentAddress)+'&before='+claimBefore);
     if(!currentWallet())return;
@@ -325,6 +345,16 @@ async function cast(side,amountText){
   toast('Bet encrypted. It will open automatically after closing.');
 }
 
-$('#wallet').onclick=()=>config.mode==='demo'?location.assign('/profile'):run(connect);
-window.ethereum?.on?.('accountsChanged',()=>{walletEpoch++;address='';signer=null;holder=false;owned=[];ownershipLoading=false;ownershipError='';$('#wallet').textContent='Connect wallet';run(refresh);});window.ethereum?.on?.('chainChanged',()=>{walletEpoch++;location.reload();});
+$('#wallet').onclick=()=>{
+  if(!config)return;
+  if(config.mode==='demo'){location.assign('/profile');return;}
+  if(!address){run(connect);return;}
+  setWalletMenu($('#wallet-menu').hidden);
+  if(!$('#wallet-menu').hidden)$('#disconnect-wallet').focus();
+};
+$('#disconnect-wallet').onclick=()=>{clearWallet();$('#wallet').focus();toast('Wallet disconnected.');};
+document.addEventListener('click',event=>{if(!$('.wallet-control').contains(event.target))setWalletMenu(false);});
+document.addEventListener('focusin',event=>{if(!$('.wallet-control').contains(event.target))setWalletMenu(false);});
+document.addEventListener('keydown',event=>{if(event.key==='Escape' && !$('#wallet-menu').hidden){setWalletMenu(false);$('#wallet').focus();}});
+window.ethereum?.on?.('accountsChanged',()=>{clearWallet();run(refresh);});window.ethereum?.on?.('chainChanged',()=>{walletEpoch++;location.reload();});
 try{config=await api('config');await refresh();setInterval(()=>{if(!busy && !document.querySelector('[data-picker-toggle][aria-expanded="true"]') && !['INPUT','SELECT'].includes(document.activeElement.tagName))refresh().catch(e=>toast(e.message));},10000);setInterval(clock,1000);}catch(e){$('#content').innerHTML='<div class="empty">'+esc(e.message)+'</div>';}
