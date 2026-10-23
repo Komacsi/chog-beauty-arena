@@ -1,0 +1,47 @@
+{
+  "checkedAt": "2026-10-21T23:42:51.029Z",
+  "chainId": 143,
+  "block": 115460204,
+  "assets": {
+    "CHOG": {
+      "address": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+      "codeBytes": 45,
+      "codeHash": "0x391069fc41b89a13233652faba0f0a5066d6825985125f24e2eb66e965eb407a",
+      "eip1967": {
+        "implementation": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "admin": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "beacon": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "calls": {
+        "name": "Chog",
+        "symbol": "CHOG",
+        "decimals": "18",
+        "totalSupply": "999999989000000000000000000",
+        "owner": "unavailable"
+      },
+      "eip1167": {
+        "implementation": "0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8",
+        "codeBytes": 7417,
+        "codeHash": "0x6dda419a8059dd56106bc3bc80bb22ffbe6e5a6f37bf42bf3a655a843e341c26"
+      }
+    },
+    "collection": {
+      "address": "0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763",
+      "codeBytes": 17264,
+      "codeHash": "0x91aa1fd28371674abeb31670fd694cacaca57ac29cae579452c5150eb5dbab46",
+      "eip1967": {
+        "implementation": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "admin": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "beacon": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "calls": {
+        "name": "Chog Genesis",
+        "symbol": "CHOG",
+        "decimals": "unavailable",
+        "totalSupply": "1969",
+        "owner": "unavailable"
+      }
+    }
+  },
+  "limitations": "Read-only inventory, not proof of immutable/non-proxy behavior. No fork transfer or independent source audit."
+}

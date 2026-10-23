@@ -1,0 +1,87 @@
+{
+  "checkedOn": "2026-10-22",
+  "timezone": "Europe/Moscow",
+  "host": "72.56.98.23",
+  "healthPatch": {
+    "release": "/opt/chog-releases/health-20261021T234904Z",
+    "previousRelease": "/opt/chog-releases/telegram-20261021T231121Z",
+    "consistentBackup": "/var/backups/chog-health/20261021T234904Z/arena.sqlite",
+    "webActive": true,
+    "keeperActive": false,
+    "monitorTimerEnabled": false,
+    "roundsAndRequestsPreserved": true,
+    "vpsRounds": 0,
+    "vpsRequests": 1,
+    "originalLocalDemoTouched": false,
+    "restartProbe": "Initial connection preceded listener readiness; configured retry succeeded. Subsequent direct/proxied HTTPS requests returned 200.",
+    "directAndNetlifyHealthStatus": 200,
+    "cacheControl": "no-store",
+    "setCookie": false,
+    "mode": "demo",
+    "realFundsEnabled": false
+  },
+  "externalMonitor": {
+    "provider": "HetrixTools",
+    "name": "Chog Arena - API",
+    "monitorId": "e104d6566c14aed20ca42b20cb5eb032",
+    "target": "https://chog-api.72-56-98-23.sslip.io/api/health",
+    "method": "GET",
+    "keyword": "\"status\":\"ok\"",
+    "locations": [
+      "New York",
+      "Amsterdam",
+      "Frankfurt"
+    ],
+    "frequencySeconds": 60,
+    "timeoutSeconds": 10,
+    "majorityRequired": 2,
+    "contactList": "Chog Arena - Telegram",
+    "privateReport": true,
+    "credentialsReadByAgent": false,
+    "chatIdOmittedFromRepository": true,
+    "controlledTest": {
+      "method": "Temporarily require an absent keyword, then restore the healthy keyword. Website remained available.",
+      "downObserved": true,
+      "recoveryObserved": true,
+      "displayedIncidentStartMoscow": "2026-10-22 02:51",
+      "displayedIncidentEndMoscow": "2026-10-22 02:53",
+      "humanTelegramReceiptConfirmed": true,
+      "humanConfirmedEvent": "Owner screenshot confirms both DOWN and UP Telegram messages",
+      "humanRecoveryNotificationReceiptConfirmed": true,
+      "notificationDownMoscow": "2026-10-22 02:51:35",
+      "notificationUpMoscow": "2026-10-22 02:53:40"
+    },
+    "frontendMonitoring": "Direct Netlify website monitor was rejected by the provider: This website cannot be monitored by our platform. No frontend monitor was created."
+  },
+  "offlineHostBenchmark": {
+    "checkedAt": "2026-10-21T23:51:41.830Z",
+    "node": "v24.22.1",
+    "dynamicUser": true,
+    "networkIsolated": true,
+    "readOnlySystem": true,
+    "privateTmp": true,
+    "memoryLimitMiB": 768,
+    "cpuQuotaPercent": 100,
+    "samples": 32,
+    "decryptMeanMs": 106,
+    "decryptP95Ms": 112,
+    "elapsedMs": 6154,
+    "invalidCiphertextsRejected": 1000,
+    "invalidBatchMs": 16,
+    "wrongNonceRejected": true,
+    "durableRegressionTestsPassed": 11,
+    "realTransactionsSent": 0,
+    "limitation": "Offline crypto/CPU and mocked recovery only. Does not establish Monad RPC, gas, confirmation or real-load throughput."
+  },
+  "localRegression": {
+    "nodeTestsPassed": 136,
+    "nodeTestsFailed": 0
+  },
+  "openLaunchConditions": [
+    "SEC-03: production/mainnet reveal capacity, complete monitoring coverage and final operational rehearsal.",
+    "SEC-04: matching CHOG implementation source and administrative/transfer behavior review.",
+    "Deploy arena with owner wallet, verify source, configure actual address/block and conduct controlled real match only after release decision."
+  ],
+  "transactionsSent": 0,
+  "supersededBy": "security/live-launch.json (23 October 2026): actual deployment, live runtime/keeper startup/restart and public cutover complete; CHOG source risk accepted, source publication and trial battle declined."
+}

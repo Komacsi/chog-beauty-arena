@@ -1,0 +1,550 @@
+{
+  "collection": "0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763",
+  "chainId": 143,
+  "expectedSupply": 1969,
+  "importedAt": "2026-10-14T22:52:38.563Z",
+  "nfts": [
+    {
+      "tokenId": 299,
+      "name": "CHOG #1760",
+      "image": "/nfts/299.webp",
+      "sourceImage": "ipfs://bafybeihau2egcccbdxymeckmmbrqytbfor5gkt3en6d5fsbueymdbq7g6e/1760.webp",
+      "tokenUri": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/1760.json",
+      "attributes": [
+        {
+          "trait_type": "Background",
+          "value": "Lime Green"
+        },
+        {
+          "trait_type": "Base",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Skin",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Side",
+          "value": "Left"
+        },
+        {
+          "trait_type": "Body",
+          "value": "Zero THOTS"
+        },
+        {
+          "trait_type": "Mouth",
+          "value": "Bubblegum"
+        },
+        {
+          "trait_type": "Eyes",
+          "value": "Clown Eye"
+        },
+        {
+          "trait_type": "Head",
+          "value": "Mon Cap"
+        },
+        {
+          "trait_type": "Form",
+          "value": "Chog"
+        },
+        {
+          "trait_type": "Tier",
+          "value": "Uncommon"
+        },
+        {
+          "trait_type": "Naked",
+          "value": "No"
+        }
+      ]
+    },
+    {
+      "tokenId": 379,
+      "name": "CHOG #1840",
+      "image": "/nfts/379.webp",
+      "sourceImage": "ipfs://bafybeihau2egcccbdxymeckmmbrqytbfor5gkt3en6d5fsbueymdbq7g6e/1840.webp",
+      "tokenUri": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/1840.json",
+      "attributes": [
+        {
+          "trait_type": "Background",
+          "value": "Mon"
+        },
+        {
+          "trait_type": "Base",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Skin",
+          "value": "Pink"
+        },
+        {
+          "trait_type": "Side",
+          "value": "Left"
+        },
+        {
+          "trait_type": "Body",
+          "value": "Grey Shirt"
+        },
+        {
+          "trait_type": "Mouth",
+          "value": "BTC Coin"
+        },
+        {
+          "trait_type": "Eyes",
+          "value": "Classic VR"
+        },
+        {
+          "trait_type": "Head",
+          "value": "MCGA"
+        },
+        {
+          "trait_type": "Form",
+          "value": "Chog"
+        },
+        {
+          "trait_type": "Tier",
+          "value": "Uncommon"
+        },
+        {
+          "trait_type": "Naked",
+          "value": "No"
+        }
+      ]
+    },
+    {
+      "tokenId": 424,
+      "name": "CHOG #1885",
+      "image": "/nfts/424.webp",
+      "sourceImage": "ipfs://bafybeihau2egcccbdxymeckmmbrqytbfor5gkt3en6d5fsbueymdbq7g6e/1885.webp",
+      "tokenUri": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/1885.json",
+      "attributes": [
+        {
+          "trait_type": "Background",
+          "value": "Lemon Yellow"
+        },
+        {
+          "trait_type": "Aura",
+          "value": "Aqua Aura"
+        },
+        {
+          "trait_type": "Base",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Skin",
+          "value": "Pink"
+        },
+        {
+          "trait_type": "Side",
+          "value": "Left"
+        },
+        {
+          "trait_type": "Body",
+          "value": "Grey Homeless Shirt"
+        },
+        {
+          "trait_type": "Mouth",
+          "value": "Clown Mouth"
+        },
+        {
+          "trait_type": "Eyes",
+          "value": "Happy"
+        },
+        {
+          "trait_type": "Head",
+          "value": "Plumber"
+        },
+        {
+          "trait_type": "Form",
+          "value": "Chog"
+        },
+        {
+          "trait_type": "Tier",
+          "value": "Uncommon"
+        },
+        {
+          "trait_type": "Naked",
+          "value": "No"
+        }
+      ]
+    },
+    {
+      "tokenId": 460,
+      "name": "CHOG #1921",
+      "image": "/nfts/460.webp",
+      "sourceImage": "ipfs://bafybeihau2egcccbdxymeckmmbrqytbfor5gkt3en6d5fsbueymdbq7g6e/1921.webp",
+      "tokenUri": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/1921.json",
+      "attributes": [
+        {
+          "trait_type": "Background",
+          "value": "Soft Lavender"
+        },
+        {
+          "trait_type": "Base",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Skin",
+          "value": "Red"
+        },
+        {
+          "trait_type": "Side",
+          "value": "Right"
+        },
+        {
+          "trait_type": "Body",
+          "value": "Chug Life"
+        },
+        {
+          "trait_type": "Mouth",
+          "value": "Drooling"
+        },
+        {
+          "trait_type": "Eyes",
+          "value": "Tired"
+        },
+        {
+          "trait_type": "Head",
+          "value": "Orange Bucket Cap"
+        },
+        {
+          "trait_type": "Form",
+          "value": "Chog"
+        },
+        {
+          "trait_type": "Tier",
+          "value": "Common"
+        },
+        {
+          "trait_type": "Naked",
+          "value": "No"
+        }
+      ]
+    },
+    {
+      "tokenId": 723,
+      "name": "CHOG #215",
+      "image": "/nfts/723.webp",
+      "sourceImage": "ipfs://bafybeihau2egcccbdxymeckmmbrqytbfor5gkt3en6d5fsbueymdbq7g6e/215.webp",
+      "tokenUri": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/215.json",
+      "attributes": [
+        {
+          "trait_type": "Background",
+          "value": "Sky Blue"
+        },
+        {
+          "trait_type": "Base",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Skin",
+          "value": "Pink"
+        },
+        {
+          "trait_type": "Side",
+          "value": "Right"
+        },
+        {
+          "trait_type": "Body",
+          "value": "Shark Suit"
+        },
+        {
+          "trait_type": "Mouth",
+          "value": "Worried"
+        },
+        {
+          "trait_type": "Eyes",
+          "value": "Green laser"
+        },
+        {
+          "trait_type": "Form",
+          "value": "Chog"
+        },
+        {
+          "trait_type": "Tier",
+          "value": "Common"
+        },
+        {
+          "trait_type": "Naked",
+          "value": "No"
+        }
+      ]
+    },
+    {
+      "tokenId": 872,
+      "name": "CHOG #364",
+      "image": "/nfts/872.webp",
+      "sourceImage": "ipfs://bafybeihau2egcccbdxymeckmmbrqytbfor5gkt3en6d5fsbueymdbq7g6e/364.webp",
+      "tokenUri": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/364.json",
+      "attributes": [
+        {
+          "trait_type": "Background",
+          "value": "Rosie"
+        },
+        {
+          "trait_type": "Aura",
+          "value": "Burning Aura"
+        },
+        {
+          "trait_type": "Base",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Skin",
+          "value": "Pink"
+        },
+        {
+          "trait_type": "Side",
+          "value": "Left"
+        },
+        {
+          "trait_type": "Body",
+          "value": "Orange Sleeveless"
+        },
+        {
+          "trait_type": "Mouth",
+          "value": "Clown Mouth"
+        },
+        {
+          "trait_type": "Eyes",
+          "value": "Chog Viper"
+        },
+        {
+          "trait_type": "Head",
+          "value": "Buttcoin Cap"
+        },
+        {
+          "trait_type": "Form",
+          "value": "Chog"
+        },
+        {
+          "trait_type": "Tier",
+          "value": "Uncommon"
+        },
+        {
+          "trait_type": "Naked",
+          "value": "No"
+        }
+      ]
+    },
+    {
+      "tokenId": 1090,
+      "name": "CHOG #582",
+      "image": "/nfts/1090.webp",
+      "sourceImage": "ipfs://bafybeihau2egcccbdxymeckmmbrqytbfor5gkt3en6d5fsbueymdbq7g6e/582.webp",
+      "tokenUri": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/582.json",
+      "attributes": [
+        {
+          "trait_type": "Background",
+          "value": "Lemon Yellow"
+        },
+        {
+          "trait_type": "Base",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Skin",
+          "value": "Pink"
+        },
+        {
+          "trait_type": "Side",
+          "value": "Right"
+        },
+        {
+          "trait_type": "Body",
+          "value": "Blue Chinese"
+        },
+        {
+          "trait_type": "Mouth",
+          "value": "Gold Tooth"
+        },
+        {
+          "trait_type": "Eyes",
+          "value": "Closed Eye Crying"
+        },
+        {
+          "trait_type": "Head",
+          "value": "Clown Nose"
+        },
+        {
+          "trait_type": "Form",
+          "value": "Chog"
+        },
+        {
+          "trait_type": "Tier",
+          "value": "Common"
+        },
+        {
+          "trait_type": "Naked",
+          "value": "No"
+        }
+      ]
+    },
+    {
+      "tokenId": 1233,
+      "name": "CHOG #725",
+      "image": "/nfts/1233.webp",
+      "sourceImage": "ipfs://bafybeihau2egcccbdxymeckmmbrqytbfor5gkt3en6d5fsbueymdbq7g6e/725.webp",
+      "tokenUri": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/725.json",
+      "attributes": [
+        {
+          "trait_type": "Background",
+          "value": "Sky Blue"
+        },
+        {
+          "trait_type": "Base",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Skin",
+          "value": "Red"
+        },
+        {
+          "trait_type": "Side",
+          "value": "Right"
+        },
+        {
+          "trait_type": "Body",
+          "value": "CWO"
+        },
+        {
+          "trait_type": "Mouth",
+          "value": "Gold Tooth"
+        },
+        {
+          "trait_type": "Eyes",
+          "value": "Teary"
+        },
+        {
+          "trait_type": "Head",
+          "value": "Thunder Cap"
+        },
+        {
+          "trait_type": "Form",
+          "value": "Chog"
+        },
+        {
+          "trait_type": "Tier",
+          "value": "Common"
+        },
+        {
+          "trait_type": "Naked",
+          "value": "No"
+        }
+      ]
+    },
+    {
+      "tokenId": 1482,
+      "name": "CHOG #974",
+      "image": "/nfts/1482.webp",
+      "sourceImage": "ipfs://bafybeihau2egcccbdxymeckmmbrqytbfor5gkt3en6d5fsbueymdbq7g6e/974.webp",
+      "tokenUri": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/974.json",
+      "attributes": [
+        {
+          "trait_type": "Background",
+          "value": "Lemon Yellow"
+        },
+        {
+          "trait_type": "Aura",
+          "value": "Cool Aura"
+        },
+        {
+          "trait_type": "Base",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Skin",
+          "value": "Yellow"
+        },
+        {
+          "trait_type": "Side",
+          "value": "Right"
+        },
+        {
+          "trait_type": "Body",
+          "value": "Red Chinese"
+        },
+        {
+          "trait_type": "Mouth",
+          "value": "Bubblegum"
+        },
+        {
+          "trait_type": "Eyes",
+          "value": "Normal Eye"
+        },
+        {
+          "trait_type": "Head",
+          "value": "Crown"
+        },
+        {
+          "trait_type": "Form",
+          "value": "Chog"
+        },
+        {
+          "trait_type": "Tier",
+          "value": "Common"
+        },
+        {
+          "trait_type": "Naked",
+          "value": "No"
+        }
+      ]
+    },
+    {
+      "tokenId": 1523,
+      "name": "CHOG #1015",
+      "image": "/nfts/1523.webp",
+      "sourceImage": "ipfs://bafybeihau2egcccbdxymeckmmbrqytbfor5gkt3en6d5fsbueymdbq7g6e/1015.webp",
+      "tokenUri": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/1015.json",
+      "attributes": [
+        {
+          "trait_type": "Background",
+          "value": "Sunlight"
+        },
+        {
+          "trait_type": "Aura",
+          "value": "Mint"
+        },
+        {
+          "trait_type": "Base",
+          "value": "Origin"
+        },
+        {
+          "trait_type": "Skin",
+          "value": "Red"
+        },
+        {
+          "trait_type": "Side",
+          "value": "Right"
+        },
+        {
+          "trait_type": "Body",
+          "value": "Prisoner"
+        },
+        {
+          "trait_type": "Mouth",
+          "value": "normal smile"
+        },
+        {
+          "trait_type": "Eyes",
+          "value": "fire laser"
+        },
+        {
+          "trait_type": "Head",
+          "value": "Mon Cap"
+        },
+        {
+          "trait_type": "Form",
+          "value": "Chog"
+        },
+        {
+          "trait_type": "Tier",
+          "value": "Common"
+        },
+        {
+          "trait_type": "Naked",
+          "value": "No"
+        }
+      ]
+    }
+  ]
+}

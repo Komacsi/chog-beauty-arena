@@ -1,0 +1,45 @@
+{
+  "checkedOn": "2026-10-21",
+  "timezone": "Europe/Moscow",
+  "implementation": "SQLite event index, signed transaction journal, bounded production keeper cycle",
+  "publicIndex": {
+    "scope": "chain, arena, actual deployment block and optional NFT collection",
+    "maximumBlockSpan": 100,
+    "rangeAttemptsPerSync": 20,
+    "adaptiveSplitting": true,
+    "confirmations": 3,
+    "checkpointReorgAction": "Rebuild public index; preserve separate transaction journal",
+    "snapshotReadsPerRefresh": 20,
+    "walletHistoryPageSize": 50
+  },
+  "transactions": {
+    "signedBytesPersistedBeforeBroadcast": true,
+    "maximumOutstandingNonces": 1,
+    "automaticReplacementAfterSeconds": 120,
+    "replacementPreservesNonceAndCall": true,
+    "defaultMaximumGas": 2000000,
+    "defaultMaximumFeeWeiPerGas": "1000000000000",
+    "unknownNonceAction": "Stop further signing for operator reconciliation",
+    "confirmations": 3
+  },
+  "validation": {
+    "fullLocalSuiteBeforeFinalRangeSplittingRegression": "124 passed, zero failures",
+    "targetedDurableTestsIncludingRangeSplittingOrphanReceiptsAndConcurrentWriters": "11 passed, zero failures",
+    "pendingJournalBackupRestoredAndReplayed": true,
+    "productionRuntimeBuildAndSmoke": "passed with production dependencies only; live guard active",
+    "demoPreserved": "4 rounds, 10 requests, 3 users; full state deep comparison passed",
+    "syntheticQueueSize": 1000,
+    "boundedEntriesInTestCycle": 10,
+    "otherReadyMatchProgressed": true,
+    "localEvmRestartAfterEveryCycle": true,
+    "realTimelockEncryptionAndVerifiedBeaconFixture": true,
+    "aggregateGrossCHOG": "15000",
+    "feeCHOG": "150",
+    "winnerNetCHOG": "14850",
+    "invalidEntryRefundCHOG": "5000",
+    "remainingBankCHOG": "0",
+    "nftsStayedInWallet": true,
+    "realTransactionsSent": 0
+  },
+  "limitations": "Local EVM and synthetic bounded-queue tests do not measure mainnet throughput or production hosting. Host provisioning, external alert delivery, Linux service/Caddy validation, backup restore rehearsal, CHOG source review and production staging remain outstanding. Release guard remains active."
+}

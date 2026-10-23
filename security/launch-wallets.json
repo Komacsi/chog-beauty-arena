@@ -1,0 +1,33 @@
+{
+  "checkedOn": "2026-10-21",
+  "timezone": "Europe/Moscow",
+  "chainId": 143,
+  "block": 115176123,
+  "governance": {
+    "address": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d",
+    "version": "1.5.0",
+    "threshold": 2,
+    "owners": [
+      "0x6084D9f004206E4d548AEA2b694411CC6F07f6e5",
+      "0xbB3e1fD0962676D04B77EFf69c21Fa51692A5338",
+      "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D"
+    ],
+    "suppliedOwnersMatch": true,
+    "modules": [],
+    "proxyCodeHash": "0x4e381985ca68b3e5d27b4425fa581c19cf33146d3f887a3cfca96f55528ea46f",
+    "implementation": "0xEdd160fEBBD92E350D4D398fb636302fccd67C7e",
+    "implementationCodeHash": "0x180193227186ccb85316c94db1f0d156ed932b14712cfaac78901899178572dc",
+    "arenaValidation": "passed"
+  },
+  "keeper": {
+    "address": "0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908",
+    "code": "0x",
+    "balanceMON": "10.0",
+    "separateFromGovernanceAndOwners": true
+  },
+  "transactionsSent": 0,
+  "credentialsConfigured": false,
+  "keeperServiceRunning": false,
+  "arenaDeployed": false,
+  "limitations": "Read-only public-state snapshot. Addresses and code do not prove independent custody of owner keys. Safe settings, code and keeper balance must be rechecked before deployment. Live release guard remains active."
+}

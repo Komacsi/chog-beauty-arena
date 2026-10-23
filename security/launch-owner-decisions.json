@@ -1,0 +1,27 @@
+{
+  "recordedAt": "2026-10-22T21:04:46Z",
+  "operatorDate": "2026-10-23",
+  "timezone": "Europe/Moscow",
+  "mainnetTrialBattle": {
+    "status": "declined_by_owner",
+    "ownerAnswer": "РЅРµ РЅР°РґРѕ РїСЂРѕР±РЅС‹Р№ Р±РѕР№",
+    "action": "Remove the real trial battle and related requests for NFT-holder wallet addresses from the launch plan.",
+    "evidenceLimit": "No real battle was performed. Existing local fork/EVM and mainnet creation checks remain the actual evidence; this does not mark a real battle as passed."
+  },
+  "sourcePublication": {
+    "destination": "https://sourcify.dev",
+    "status": "declined_by_owner",
+    "ownerAnswer": "РЅРµ РЅР°РґРѕ soufcify",
+    "submitted": false,
+    "scope": "Owner explicitly declined Sourcify. Remove source publication from the launch plan; do not submit the package to Sourcify or substitute another public verifier without new authorization. Local arena source/bytecode matching already passed; publication is not required by the game or keeper."
+  },
+  "remainingWork": "V2 deployment, ABI/runtime pins, isolated services and Netlify cutover verified. V1 retirement is prepared as an unsigned Safe import and not executed; it requires the owners to sign separately.",
+  "realFundsEnabled": true,
+  "launchAuthorization": {
+    "operatorDate": "2026-10-23",
+    "status": "authorized_and_executed",
+    "ownerRequest": "Four-step live launch plan, including enabling real bets after final checks; Делай; продолжай",
+    "evidence": "security/participant-voting-v2.json"
+  },
+  "updatedAt": "2026-10-23T00:21:19.830Z"
+}

@@ -1,0 +1,49 @@
+{
+  "checkedOn": "2026-10-22",
+  "timezone": "Europe/Moscow",
+  "productionSourceSHA256": {
+    "lib/keeper-cycle.mjs": "bfbf27b093b6fbadd437fdb1ea553a2971429ca078dcdc2cfd5ffd5ac2e3fb50",
+    "lib/keeper-transactions.mjs": "df96b52d79bd31e00cbb89f49852a494506330d0f09675724aad1ec48d447700",
+    "lib/chain-index.mjs": "3060c1e6798a2af778e50d341cffb71dc3305a759497023351b8b0972cd499ff",
+    "lib/timelock.mjs": "c44725610af316d754ce96889d62d83334bea951698c92b8cb06dfbddd3cd011"
+  },
+  "vpsSourceMatchesNormalizedCheckout": true,
+  "ownerTrafficDecision": {
+    "expectedMaximumPeople": 50,
+    "highInfluxOptimizationRequested": false,
+    "forecastNotContractLimit": true,
+    "repeatedPaidBetsAndNFTGroupsRemainAllowed": true,
+    "highInfluxCapacityRiskAcceptedForThisExpectedAudience": true,
+    "doesNotWaiveOtherSEC03OrSEC04Conditions": true
+  },
+  "scope": {
+    "vps": "72.56.98.23",
+    "dynamicUser": true,
+    "networkIsolated": true,
+    "productionCredentialsAccessible": false,
+    "maximumCPUPercent": 100,
+    "memoryLimitMiB": 768,
+    "webStayedActive": true,
+    "webLoopbackHealthDuringLoadHTTP": 200,
+    "webLoopbackHealthDuringLoadSeconds": 0.00099,
+    "productionKeeperStayedInactive": true,
+    "localDemoNotRestartedOrModified": true,
+    "productionCodeChanged": false,
+    "realTransactionsSent": 0
+  },
+  "results": {
+    "rpc": "security/keeper-load-rpc.json",
+    "vps1000": "security/keeper-load-host.json",
+    "localEVM": "security/keeper-load-evm.json",
+    "smallAudienceModel": "security/keeper-load-small.json"
+  },
+  "smallAudienceConclusion": "100 unique valid reveal entries across ten rounds plus ten settlements completed in 672 modeled seconds at 250 ms per RPC, with no missing entries. This is a useful two-entry-per-person reference for 50 people, not a bound on the unlimited entries that those people may submit.",
+  "largeLoadConclusion": "At 32 ms modeled RPC, all 1000 valid entries opened; a second scenario also tolerated 1000 malformed entries, two RPC outages, 32 ambiguous accepts and 21 journal/index reopens. At 250 ms only 589 of 1000 valid entries opened before the one-hour deadline; 411 were excluded. All rounds settled and indexed queues drained.",
+  "modelLimitations": [
+    "Real production keeper/index/journal, unique timelock ciphertexts and disposable signatures; virtual RPC, blocks and inclusion, with a historical signed beacon.",
+    "Constant per-request delay is charged serially, including reads that the production code can overlap. This is a conservative timing budget, not an accurate parallel network scheduler.",
+    "Initial transaction inclusion is optimistic at the next modeled block. Actual network congestion, drand outages, estimateGas latency and RPC rate limits are not established by this model.",
+    "Model paid entries represent repeated bets from one wallet across ten rounds. The local EVM separately verifies four 50-NFT holder batches and multiple paid wallets.",
+    "No mainnet throughput or launch authorization is implied. Release guard and outstanding source/operational checks remain unchanged."
+  ]
+}

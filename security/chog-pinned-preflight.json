@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-10-22T19:57:31.185Z",
+  "chainId": 143,
+  "block": 115700747,
+  "blockHash": "0x9793cc5a90a797932d8c476b098baf6e3e1a57b9df9a07ab0d4d3f76e278b828",
+  "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+  "proxyCodeHash": "0x391069fc41b89a13233652faba0f0a5066d6825985125f24e2eb66e965eb407a",
+  "implementation": "0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8",
+  "implementationCodeHash": "0x6dda419a8059dd56106bc3bc80bb22ffbe6e5a6f37bf42bf3a655a843e341c26",
+  "controller": "0xa7283d07812a02afb7c09b60f8896bcea3f90ace",
+  "pool": "0x116e7d070f1888b81e1e0324f56d6746b2d7d8f1",
+  "initialized": true,
+  "graduated": true,
+  "decimals": 18,
+  "controllerWord": "0x000000000000000000000000a7283d07812a02afb7c09b60f8896bcea3f90ace",
+  "flagsWord": "0x000000000000000000000101116e7d070f1888b81e1e0324f56d6746b2d7d8f1",
+  "sourceVerified": false,
+  "scope": "Exact reviewed identity and storage assumptions at one block; not source verification or release approval.",
+  "transactionsSigned": 0,
+  "transactionsSent": 0
+}

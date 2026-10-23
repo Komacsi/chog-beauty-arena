@@ -1,0 +1,12 @@
+{
+    admin off
+    auto_https off
+}
+http://:8080 {
+    bind 127.0.0.1
+    request_body {
+        max_size 16KB
+    }
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:3000
+}

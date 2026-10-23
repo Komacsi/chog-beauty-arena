@@ -1,0 +1,15 @@
+.env
+secrets/
+*.keystore.json
+*.password
+telegram.json
+node_modules/
+__pycache__/
+dist/
+data/*.sqlite*
+data/import-errors.json
+data/nft-cache/
+*.log
+artifacts/
+public/vendor/
+public/bundle.js

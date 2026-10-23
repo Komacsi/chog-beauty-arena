@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-10-22T20:08:43Z",
+  "operatorDate": "2026-10-22",
+  "timezone": "Europe/Moscow",
+  "chainId": 143,
+  "status": "addresses_confirmed_by_owner",
+  "deployer": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+  "deployerConfirmation": "Да, использовать этот кошелёк",
+  "treasury": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+  "treasuryConfirmation": "Третий подписант: 0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+  "treasuryTermsShown": "Recipient of the 1% payout fee, immutable after deployment. Fee withdrawal is authorized only from this address; it is the owner's individual signer, not the Safe.",
+  "governance": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d",
+  "keeper": "0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908",
+  "scope": "Confirmation of address selection only. The owner signs an actual deployment separately in Rabby after reviewing the transaction. No permission to bypass the release guard or enable real bets.",
+  "transactionsSigned": 0,
+  "transactionsSent": 0
+}

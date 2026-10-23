@@ -1,0 +1,159 @@
+{
+  "checkedAt": "2026-10-22T18:41:39.645Z",
+  "endpoint": "https://rpc.monad.xyz",
+  "chainId": 143,
+  "host": "linux",
+  "node": "v24.22.1",
+  "requests": 27,
+  "failures": 0,
+  "meanMs": 32,
+  "p95Ms": 15,
+  "minMs": 10,
+  "maxMs": 562,
+  "blockSample": {
+    "from": 115685623,
+    "to": 115685687,
+    "span": 64,
+    "timestampSpanSeconds": 20,
+    "meanBlockMs": 312.5
+  },
+  "rows": [
+    {
+      "method": "eth_chainId",
+      "ms": 562,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 15,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 13,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 13,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 12,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 12,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 12,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 14,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 13,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 10,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 11,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 12,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 10,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 10,
+      "ok": true
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "ms": 10,
+      "ok": true
+    },
+    {
+      "method": "eth_call",
+      "ms": 12,
+      "ok": true
+    }
+  ],
+  "transactionsSent": 0,
+  "limitations": "Short sequential low-rate read sample, not a load test of the public endpoint and not a bound on future availability, eth_estimateGas, transaction inclusion or drand."
+}

@@ -1,0 +1,159 @@
+{
+  "checkedAt": "2026-10-22T18:46:23.000Z",
+  "platform": "win32",
+  "node": "v24.19.0",
+  "chain": "disposable local Anvil 1337",
+  "rounds": 4,
+  "validPaidEntries": 128,
+  "holderGroups": 4,
+  "holderVotes": 200,
+  "malformedPaidEntries": 4,
+  "cycles": 138,
+  "restarts": 5,
+  "revealWallMs": 67854,
+  "totalWallMs": 96211,
+  "allValidVotesOpened": true,
+  "allRoundsSettled": true,
+  "queueRemaining": 0,
+  "allNFTsRetained": true,
+  "grossWei": "660000000000000000000000",
+  "feesWei": "6400000000000000000000",
+  "netWei": "653600000000000000000000",
+  "arenaFinalBalanceWei": "0",
+  "gas": {
+    "revealVote": {
+      "transactions": 128,
+      "min": 66754,
+      "max": 140249,
+      "total": 9243312
+    },
+    "revealHolderVotes50": {
+      "transactions": 4,
+      "min": 82172,
+      "max": 82172,
+      "total": 328688
+    },
+    "settle": {
+      "transactions": 4,
+      "min": 117627,
+      "max": 117627,
+      "total": 470508
+    }
+  },
+  "payouts": [
+    {
+      "round": 1,
+      "wallet": 1,
+      "gross": "80000000000000000000000",
+      "fee": "800000000000000000000",
+      "net": "79200000000000000000000"
+    },
+    {
+      "round": 1,
+      "wallet": 2,
+      "gross": "80000000000000000000000",
+      "fee": "800000000000000000000",
+      "net": "79200000000000000000000"
+    },
+    {
+      "round": 1,
+      "wallet": 3,
+      "gross": "5000000000000000000000",
+      "fee": "0",
+      "net": "5000000000000000000000"
+    },
+    {
+      "round": 1,
+      "wallet": 4,
+      "gross": "0",
+      "fee": "0",
+      "net": "0"
+    },
+    {
+      "round": 2,
+      "wallet": 1,
+      "gross": "80000000000000000000000",
+      "fee": "800000000000000000000",
+      "net": "79200000000000000000000"
+    },
+    {
+      "round": 2,
+      "wallet": 2,
+      "gross": "80000000000000000000000",
+      "fee": "800000000000000000000",
+      "net": "79200000000000000000000"
+    },
+    {
+      "round": 2,
+      "wallet": 3,
+      "gross": "5000000000000000000000",
+      "fee": "0",
+      "net": "5000000000000000000000"
+    },
+    {
+      "round": 2,
+      "wallet": 4,
+      "gross": "0",
+      "fee": "0",
+      "net": "0"
+    },
+    {
+      "round": 3,
+      "wallet": 1,
+      "gross": "80000000000000000000000",
+      "fee": "800000000000000000000",
+      "net": "79200000000000000000000"
+    },
+    {
+      "round": 3,
+      "wallet": 2,
+      "gross": "80000000000000000000000",
+      "fee": "800000000000000000000",
+      "net": "79200000000000000000000"
+    },
+    {
+      "round": 3,
+      "wallet": 3,
+      "gross": "5000000000000000000000",
+      "fee": "0",
+      "net": "5000000000000000000000"
+    },
+    {
+      "round": 3,
+      "wallet": 4,
+      "gross": "0",
+      "fee": "0",
+      "net": "0"
+    },
+    {
+      "round": 4,
+      "wallet": 1,
+      "gross": "80000000000000000000000",
+      "fee": "800000000000000000000",
+      "net": "79200000000000000000000"
+    },
+    {
+      "round": 4,
+      "wallet": 2,
+      "gross": "80000000000000000000000",
+      "fee": "800000000000000000000",
+      "net": "79200000000000000000000"
+    },
+    {
+      "round": 4,
+      "wallet": 3,
+      "gross": "5000000000000000000000",
+      "fee": "0",
+      "net": "5000000000000000000000"
+    },
+    {
+      "round": 4,
+      "wallet": 4,
+      "gross": "0",
+      "fee": "0",
+      "net": "0"
+    }
+  ],
+  "realTransactionsSent": 0,
+  "limitations": "Actual contract bytecode, Safe, timelock crypto, index/journal/signing and local transactions. Three blocks are mined manually per cycle, timestamps are accelerated, no 1-second production pause; wall times are not mainnet capacity. Token/NFT are mocks, gas excludes commits and claims."
+}

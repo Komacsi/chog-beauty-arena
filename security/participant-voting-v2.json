@@ -1,0 +1,120 @@
+{
+  "checkedAt": "2026-10-23T00:18:54.547Z",
+  "status": "V2_deployed_verified_and_live",
+  "activeLiveArena": "0x8Cd36066717FF98D86FebC3294A98aC2f0095d05",
+  "activeLiveRulesVersion": 8,
+  "newMainnetContractDeployed": true,
+  "liveCutoverPerformed": true,
+  "rules": {
+    "participants": "creator and accepting wallet fixed per round at acceptance",
+    "freeVotes": "rejected for both participants",
+    "paidBets": "allowed for both participants; zero votes from all their bets",
+    "spectators": "one vote per NFT plus one from first CHOG bet",
+    "payouts": "all accepted CHOG bets retain bank and payout eligibility"
+  },
+  "validation": {
+    "nodeTests": 151,
+    "failures": 0,
+    "V2ContractIntegrationTests": 2,
+    "V2DemoTests": 1,
+    "V2DraftPinTests": 1,
+    "existingV1CreationBytecodeUnchanged": true,
+    "disposableFork": {
+      "checkedAt": "2026-10-22T23:45:26.061Z",
+      "upstreamChainId": 143,
+      "forkBlock": 115745952,
+      "localChainId": 143,
+      "environment": "Disposable loopback Anvil through read-only upstream gateway; local chain 143 intentionally tests the exact prepared request",
+      "preparedInitcodeHash": "0x338ce01c6b1b53f940c1b280a40bae9a6c8d96187a26fa4a6ab11c003a0bea87",
+      "preparedNonce": 3,
+      "constructorAndRuntimeVerification": "passed",
+      "predictedAddressMatchesLocalReceipt": true,
+      "governanceAndChogRechecked": true,
+      "localGasUsed": "3764452",
+      "transactionsSentToLocalFork": 1,
+      "realTransactionsSent": 0,
+      "mainnetArenaDeployed": false,
+      "limitations": "Local Shanghai EVM, fake MON and impersonation only; no real key/signing or mainnet transaction. Not a mainnet gas/consensus proof or launch approval."
+    },
+    "realTransactionsSent": 0
+  },
+  "demo": {
+    "newRoundsVersion": 8,
+    "existingEightRoundsRetained": true,
+    "backup": "before-participant-v8-20261023.sqlite"
+  },
+  "limitations": [
+    "Original V1 is preserved and empty at the before/after cutover checks, but its onchain revealer is not revoked. A simulated unsigned Safe import is prepared; two owner signatures and execution remain a separate human action.",
+    "Participant addresses are excluded; the previously accepted multi-wallet/Sybil limitation remains.",
+    "151 is the preceding combined regression suite, not 151 distinct V2 tests. Nine focused activation regressions and real deployed read-only acceptance passed after pin/ABI changes.",
+    "No real trial battle or Sourcify publication was performed, as requested."
+  ],
+  "frontend": {
+    "netlifyDeploy": "6adaa70f153ede1791aa3821",
+    "V1Compatible": true,
+    "rolePanelCheckedInReadOnlyLocalFixture": true,
+    "participantVoteButtonsDisabled": true,
+    "participantBetButtonAvailable": true,
+    "reloadsOnArenaAddressMismatch": true
+  },
+  "preparation": {
+    "checkedAt": "2026-10-22T23:52:58.747Z",
+    "status": "code_tested_unsigned_V2_ready_for_owner_signature",
+    "pendingTransaction": {
+      "directory": "artifacts/participant-v2-ready-20261023",
+      "reviewUrl": "http://127.0.0.1:3113/",
+      "deployer": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+      "predictedAddress": "0x8Cd36066717FF98D86FebC3294A98aC2f0095d05",
+      "nonce": 3,
+      "initcodeHash": "0x338ce01c6b1b53f940c1b280a40bae9a6c8d96187a26fa4a6ab11c003a0bea87",
+      "maximumGasCostWei": "929574104000000000",
+      "creationBytecodeHash": "0x34bfa423690d3a62ffabebb06dec6b99cbdb056a4fab5eafc548333cf1a6f0cd",
+      "predictionIsNotDeployment": true
+    },
+    "liveArenaSnapshot": {
+      "rounds": 0,
+      "requests": 0,
+      "bankCHOGUnits": "0",
+      "note": "Read-only snapshot; recheck immediately before cutover"
+    }
+  },
+  "deploymentEvidence": "security/arena-v2-deployment.json",
+  "activation": {
+    "runtime": "/opt/chog-releases/participant-v2-20261023",
+    "environment": "/etc/chog-arena/v2.env",
+    "webService": "chog-v2-web.service",
+    "listener": "127.0.0.1:3002",
+    "webState": "/var/lib/chog-v2-web",
+    "keeperState": "/var/lib/chog-v2-keeper",
+    "keeperService": "chog-keeper.service",
+    "globalLock": "/var/lib/chog-keeper/instance.lock",
+    "v1RuntimeAndStatePreserved": true,
+    "consistentV1Backups": "/var/backups/chog-v2/cutover-20261023",
+    "keeperManuallyRestarted": true,
+    "keeperReady": true,
+    "backlogBlocks": 0,
+    "automaticRestarts": 0,
+    "keeperDirectoryMode": "0700",
+    "journalFilesMode": "0600",
+    "MON": "10.0",
+    "latestNonce": 0,
+    "pendingNonce": 0,
+    "monitorBattleScanning": false,
+    "monitorCheckedRounds": 0,
+    "monitorAlerts": [],
+    "originalsMetadataAndPreviewsRetained": 1969,
+    "loopbackAcceptance": "security/v2-loopback-acceptance.json",
+    "publicNetlifyAcceptance": "security/v2-netlify-acceptance.json",
+    "activationTargetedNodeTests": 9,
+    "installedRuntimeFilesMatched": 67,
+    "finalRuntimeArchiveSHA256": "35a1e45516241ec410984ab88b7060f7769b13d6cfcd944e1c1dec13269d1a91"
+  },
+  "v1Retirement": {
+    "proposal": "ops/retire-v1-safe-20261023.json",
+    "simulatedAsSafe": true,
+    "signed": false,
+    "executed": false,
+    "requiredOwnerSignatures": 2,
+    "scope": "Revoke only old V1 revealer; current V2 is unaffected"
+  }
+}

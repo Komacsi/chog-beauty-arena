@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "chainId": "143",
+  "createdAt": 1792714290877,
+  "meta": {
+    "name": "Retire OLD Chog Arena V1",
+    "description": "Revoke revealer only on old V1 0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5. Live V2 0x8Cd36066717FF98D86FebC3294A98aC2f0095d05 is unchanged. Requires two Safe owner approvals and execution.",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d"
+  },
+  "transactions": [
+    {
+      "to": "0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5",
+      "value": "0",
+      "data": "0x4066a420",
+      "contractMethod": null,
+      "contractInputsValues": null
+    }
+  ]
+}

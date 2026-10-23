@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-10-20T23:43:56.098Z",
+  "chainId": 143,
+  "block": 115174267,
+  "collection": "0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763",
+  "account": "0xf870BF2706a11B9a85c635b0b2a89D7F6Fc6351e",
+  "tokenIds": [
+    6,
+    32,
+    53,
+    299,
+    942,
+    1445
+  ],
+  "outsideSample": [
+    6,
+    32,
+    53,
+    942,
+    1445
+  ],
+  "method": "tokensOfOwner + balanceOf at one block",
+  "imagesRequiredForDiscovery": false,
+  "transactionsSent": 0,
+  "limitations": "Public read-only ownership snapshot, not a production wallet connection or live deployment."
+}

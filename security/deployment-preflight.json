@@ -1,0 +1,94 @@
+{
+  "checkedAt": "2026-10-22T20:10:29.484Z",
+  "operatorDate": "2026-10-22",
+  "timezone": "Europe/Moscow",
+  "chainId": 143,
+  "observedBlock": 115703318,
+  "purpose": "Read-only contract-creation estimate. Draft only; no deployment approval or transaction.",
+  "constructorParameters": {
+    "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+    "collection": "0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763",
+    "treasury": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+    "revealer": "0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908",
+    "governance": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d"
+  },
+  "proposedDeployer": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+  "deployerConfirmedByOwner": true,
+  "treasuryConfirmedByOwner": true,
+  "addressSelection": "security/deployment-addresses.json",
+  "chogAsset": {
+    "chainId": 143,
+    "block": 115703316,
+    "blockHash": "0x847ac4e128c8795b0a3ee740b712febc0870cf47525730962b27b44634f03617",
+    "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+    "proxyCodeHash": "0x391069fc41b89a13233652faba0f0a5066d6825985125f24e2eb66e965eb407a",
+    "implementation": "0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8",
+    "implementationCodeHash": "0x6dda419a8059dd56106bc3bc80bb22ffbe6e5a6f37bf42bf3a655a843e341c26",
+    "controller": "0xa7283d07812a02afb7c09b60f8896bcea3f90ace",
+    "pool": "0x116e7d070f1888b81e1e0324f56d6746b2d7d8f1",
+    "initialized": true,
+    "graduated": true,
+    "decimals": 18,
+    "controllerWord": "0x000000000000000000000000a7283d07812a02afb7c09b60f8896bcea3f90ace",
+    "flagsWord": "0x000000000000000000000101116e7d070f1888b81e1e0324f56d6746b2d7d8f1",
+    "sourceVerified": false,
+    "scope": "Exact reviewed identity and storage assumptions at one block; not source verification or release approval."
+  },
+  "compilation": {
+    "artifactSha256": "66075479ce2f34dbf4ad5dfdec96348536f9acb9faf9d543b57c50d4f0229cb4",
+    "creationBytecodeKeccak256": "0x77d268dd2950a9f2e21ffbc60d6ae84c419fa95584ee1ffa7745ea143e10199e",
+    "creationBytecodeBytes": 18138,
+    "unsignedInitcodeKeccak256": "0x9a44b3dfba95ffb491ab1bc2bf9cc3ce46aaec6fd308cd3466357990e9df0662",
+    "unsignedInitcodeBytes": 18298,
+    "optimizerRuns": 200,
+    "evmVersion": "shanghai"
+  },
+  "governance": {
+    "address": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d",
+    "version": "1.5.0",
+    "threshold": 2,
+    "owners": [
+      "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+      "0xbB3e1fD0962676D04B77EFf69c21Fa51692A5338",
+      "0x6084D9f004206E4d548AEA2b694411CC6F07f6e5"
+    ],
+    "suppliedOwnersMatch": true
+  },
+  "keeper": {
+    "address": "0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908",
+    "code": "0x",
+    "balanceMON": "10.0"
+  },
+  "estimate": {
+    "gasUnits": "3728776",
+    "illustrativeGasLimitWith20PercentBuffer": "4474532",
+    "gasPriceWei": "102000000000",
+    "maxFeePerGasWei": "202000000000",
+    "maxPriorityFeePerGasWei": "2000000000",
+    "illustrativeGasBudgetMON": "0.903855464",
+    "proposedDeployerBalanceMON": "35.94189519",
+    "proposedDeployerCoversIllustrativeBudget": true
+  },
+  "release": {
+    "realFundsEnabled": false,
+    "blockingFindings": [
+      "SEC-03",
+      "SEC-04"
+    ],
+    "acceptedRisks": [
+      "SEC-02",
+      "CHOG-SOURCE"
+    ],
+    "arenaDeployed": false,
+    "keeperServiceStarted": false
+  },
+  "transactionsSigned": 0,
+  "transactionsSent": 0,
+  "limitations": [
+    "RPC estimation executes the constructor in simulation only; it does not deploy code or prove game security.",
+    "CHOG identity/state is checked at its recorded block. Safe state, balances and fee quote are latest reads, not an atomic shared snapshot. Recheck immediately before any user-signed deployment.",
+    "Gas budget is a temporary quote with a 20% gas-unit buffer, not a fee guarantee.",
+    "No matching CHOG implementation source verified and no mainnet reveal-throughput check. Telegram/external API alert delivery is separately recorded in security/operational-readiness.json. SEC-03/04 remain open.",
+    "No credential file is read by this tool. The owner confirmed the deployer and immutable treasury address; actual transaction review/signing and release readiness remain separate."
+  ]
+}

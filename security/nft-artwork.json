@@ -1,0 +1,50 @@
+{
+  "checkedAt": "2026-10-22T23:21:25.648999+00:00",
+  "status": "complete",
+  "tokens": 1969,
+  "previews": 1969,
+  "uniqueSourceImages": 1969,
+  "originalBytes": 560479762,
+  "previewBytes": 58350450,
+  "reductionFactor": 9.61,
+  "maxPreviewDimension": 384,
+  "publicNetlifySamples": [
+    {
+      "tokenId": 1,
+      "bytes": 36734,
+      "seconds": 0.482
+    },
+    {
+      "tokenId": 1121,
+      "bytes": 31956,
+      "seconds": 0.053
+    },
+    {
+      "tokenId": 1000,
+      "bytes": 27162,
+      "seconds": 0.218
+    },
+    {
+      "tokenId": 1700,
+      "bytes": 31730,
+      "seconds": 0.21
+    },
+    {
+      "tokenId": 1969,
+      "bytes": 31524,
+      "seconds": 0.196
+    }
+  ],
+  "keeperHealth": {
+    "status": "ok",
+    "mode": "live",
+    "keeper": "healthy",
+    "alerts": []
+  },
+  "nodeTestsPassed": 147,
+  "linuxCatalogTestsPassed": 9,
+  "finiteJobExitStatus": 0,
+  "temporaryIpfsServiceStopped": true,
+  "transactionsSignedOrSent": 0,
+  "walletOwnershipDiscoveryChanged": false
+}
