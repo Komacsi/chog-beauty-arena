@@ -39,7 +39,7 @@ if(!state.losses){state.losses={};for(const r of state.rounds)if(r.settled && !r
 if(!state.draws){state.draws=drawTotals(state.rounds);save();}
 if(demo.migrateMinimumStake(state))save();
 if(demo.migrateAggregatePayouts(state))save();
-const artifact=JSON.parse(await readFile(resolve(root,'artifacts/BeautyArena.json'),'utf8'));
+const artifact=JSON.parse(await readFile(resolve(root,'artifacts',live?RELEASE_STATUS.artifact:'BeautyArena.json'),'utf8'));
 const demoFastRounds=!live && process.env.DEMO_FAST_ROUNDS!=='0';
 const arena=live?new Contract(arenaAddress,artifact.abi,provider):null;
 let catalogProvider;
@@ -138,7 +138,7 @@ const server=http.createServer({headersTimeout:10000,requestTimeout:15000,connec
         const round=url.searchParams.get('round')?[...data.rounds,...data.history].find(r=>r.id===selected) || null:data.rounds.at(-1) || null;
         const account=live?null:demo.user(state,id);
         const claims=live?[]:demo.claimsFor(state,id),privateRound=live?null:state.rounds.find(r=>r.id===round?.id);
-        return json(res,200,{...data,history:live?data.history.slice(-8):data.history,round,account,claims,persona,ownedTokens:live?[]:demo.ownedTokens(state,id),betCount:live?0:demo.nextBetNonce(privateRound,id),usedNfts:live?[]:Object.keys(privateRound?.usedNfts || {}).map(Number),entry:privateRound?.entries[id] || null,serverNow:Date.now()});
+        return json(res,200,{...data,arenaAddress:live?arenaAddress:'',history:live?data.history.slice(-8):data.history,round,account,claims,persona,ownedTokens:live?[]:demo.ownedTokens(state,id),betCount:live?0:demo.nextBetNonce(privateRound,id),usedNfts:live?[]:Object.keys(privateRound?.usedNfts || {}).map(Number),entry:privateRound?.entries[id] || null,serverNow:Date.now()});
       }
       if(req.method==='POST'){
         if(live)return json(res,405,{error:'Live transactions must be signed in your wallet'});

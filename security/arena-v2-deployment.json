@@ -1,0 +1,63 @@
+{
+  "checkedAt": "2026-10-23T00:03:12.200Z",
+  "chainId": 143,
+  "simulationOnly": false,
+  "mainnetDeploymentVerified": true,
+  "transactionHash": "0xf447277e703d26fbf4073acf27e4f23506d823721fca8db8109cb25dd3f0fa33",
+  "arena": "0x8Cd36066717FF98D86FebC3294A98aC2f0095d05",
+  "deploymentBlock": 115749283,
+  "blockHash": "0x259a9c21de8260dcffd06830b3ebcd5e5cb529d68767bc6739df8dcdcf82bb7f",
+  "from": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+  "initcodeHash": "0x338ce01c6b1b53f940c1b280a40bae9a6c8d96187a26fa4a6ab11c003a0bea87",
+  "runtimeCodeHash": "0x25c32735d5c351ae648b040c6f68aecea3dc90de4033e0731c779e0e0eceeca6",
+  "runtimeMatchesCompiledTemplate": true,
+  "constructorAndRules": {
+    "chog": "0x350035555E10d9AfAF1566AaebfCeD5BA6C27777",
+    "collection": "0xc96d31F8626c6D03Fae5dCD3d61e3FB9F4a73763",
+    "treasury": "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+    "revealer": "0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908",
+    "owner": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d",
+    "FEE_BPS": "100",
+    "MIN_STAKE": "5000000000000000000000",
+    "DURATION": "86400",
+    "UNLOCK_DELAY": "300",
+    "REVEAL_DURATION": "3600",
+    "currentRoundId": "0",
+    "challengeCount": "0",
+    "RULES_VERSION": "8"
+  },
+  "gasUsed": "7416867",
+  "actualGasFeeMON": "0.756520434",
+  "chog": {
+    "chainId": 143,
+    "block": 115749539,
+    "blockHash": "0x09b54525626b36e72a60987679a6047973d5f3c883dd1fb46c62acee760d8cbb",
+    "token": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+    "proxyCodeHash": "0x391069fc41b89a13233652faba0f0a5066d6825985125f24e2eb66e965eb407a",
+    "implementation": "0x7f64ccfeb3e3afd7691ea0ef404e947786cefae8",
+    "implementationCodeHash": "0x6dda419a8059dd56106bc3bc80bb22ffbe6e5a6f37bf42bf3a655a843e341c26",
+    "controller": "0xa7283d07812a02afb7c09b60f8896bcea3f90ace",
+    "pool": "0x116e7d070f1888b81e1e0324f56d6746b2d7d8f1",
+    "initialized": true,
+    "graduated": true,
+    "decimals": 18,
+    "controllerWord": "0x000000000000000000000000a7283d07812a02afb7c09b60f8896bcea3f90ace",
+    "flagsWord": "0x000000000000000000000101116e7d070f1888b81e1e0324f56d6746b2d7d8f1",
+    "sourceVerified": false,
+    "scope": "Exact reviewed identity and storage assumptions at one block; not source verification or release approval."
+  },
+  "governance": {
+    "address": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d",
+    "version": "1.5.0",
+    "threshold": 2,
+    "owners": [
+      "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+      "0xbB3e1fD0962676D04B77EFf69c21Fa51692A5338",
+      "0x6084D9f004206E4d548AEA2b694411CC6F07f6e5"
+    ]
+  },
+  "realFundsEnabled": false,
+  "transactionsSignedByVerifier": 0,
+  "transactionsSentByVerifier": 0,
+  "limitation": "Creation/source-template/parameter check at configured RPC, not source publication or operational launch approval. Local RPC results are simulation only. App guard, keeper setup and controlled real-game rehearsal remain separate."
+}

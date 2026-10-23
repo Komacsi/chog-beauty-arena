@@ -1,10 +1,17 @@
-# Participant voting exclusion (V2, pending activation)
+# Participant voting exclusion (V2 live, 23 October 2026)
+
+V2 is deployed and active at `0x8Cd36066717FF98D86FebC3294A98aC2f0095d05`,
+block `115749283`. Owner transaction:
+`0xf447277e703d26fbf4073acf27e4f23506d823721fca8db8109cb25dd3f0fa33`.
+The exact initcode/runtime/constructor/Safe/CHOG checks passed before cutover.
+Public Netlify and loopback acceptance confirmed rules version 8 and a healthy
+keeper. See `../security/participant-voting-v2.json` and `LIVE.md`.
 
 The owner requested that the two wallets entering a battle cannot vote, while
 their CHOG bets remain eligible for normal payouts. This is a new rule, not a
 retroactive change to already accepted entries.
 
-- `contracts/BeautyArena.sol` and the pinned live arena
+- `contracts/BeautyArena.sol` and the original V1 arena
   `0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5` remain unchanged.
 - `contracts/BeautyArenaV2.sol` fixes `participantA` and `participantB` at request
   acceptance. Either wallet's NFT vote transaction reverts before usage markers
@@ -16,9 +23,10 @@ retroactive change to already accepted entries.
   retain the V1 behavior. Participants can bet on either contender.
 - New demo rounds use protocol 8; existing demo rounds keep their original
   version and results. No existing entries are migrated to the new voting rule.
-- The API/frontend understand V2 round roles. Live services still use V1 ABI and
-  startup pins until a verified cutover. The site must not claim that V2 rules
-  are active for a V1 round.
+- Live V2 API/keeper/monitor use the V2 ABI and pinned verified V2 runtime/block.
+  The original internal V1 API/runtime and both demos remain available separately.
+  Open tabs using the updated bundle reload on an API arena-address mismatch;
+  actions also recheck current API configuration before using a connected wallet.
 
 ## Preparation and activation
 
@@ -44,5 +52,10 @@ retroactive change to already accepted entries.
    journals. Retain V1 state, deployment records and demos. Recheck startup,
    keeper heartbeat/restart and public config before routing new games to V2.
 
-Creation alone does not activate V2. No mainnet deployment or service cutover
-has been performed as part of this preparation.
+Creation and cutover are now complete. The operator scripts performed no mainnet
+signing or broadcasting; the owner signed the deployment in Rabby. V1 had zero
+rounds, requests and CHOG bank before and after cutover. A simulated unsigned
+Safe import to revoke the old V1 revealer is prepared as
+`ops/retire-v1-safe-20261023.json`; it was not signed or executed. Until
+the Safe executes it, V1 is not revoked onchain, even though public routing
+uses only V2. The accepted multi-wallet limitation remains.

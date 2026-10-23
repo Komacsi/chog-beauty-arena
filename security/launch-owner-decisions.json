@@ -15,13 +15,13 @@
     "submitted": false,
     "scope": "Owner explicitly declined Sourcify. Remove source publication from the launch plan; do not submit the package to Sourcify or substitute another public verifier without new authorization. Local arena source/bytecode matching already passed; publication is not required by the game or keeper."
   },
-  "remainingWork": "No pending launch checks. Owner confirmed Rabby connection and NFTs. Complete artwork caching and preview delivery passed; see security/nft-artwork.json.",
+  "remainingWork": "V2 deployment, ABI/runtime pins, isolated services and Netlify cutover verified. V1 retirement is prepared as an unsigned Safe import and not executed; it requires the owners to sign separately.",
   "realFundsEnabled": true,
   "launchAuthorization": {
     "operatorDate": "2026-10-23",
     "status": "authorized_and_executed",
     "ownerRequest": "Four-step live launch plan, including enabling real bets after final checks; Делай; продолжай",
-    "evidence": "security/live-launch.json"
+    "evidence": "security/participant-voting-v2.json"
   },
-  "updatedAt": "2026-10-22T21:58:58.988Z"
+  "updatedAt": "2026-10-23T00:21:19.830Z"
 }

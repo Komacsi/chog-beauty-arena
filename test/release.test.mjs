@@ -10,6 +10,8 @@ const root=new URL('..',import.meta.url);
 test('release permits only the reviewed deployment and rejects another arena before touching demo state',async()=>{
   assert.equal(RELEASE_STATUS.realFundsEnabled,true);assert.doesNotThrow(()=>assertLiveReleaseAllowed(''));
   assert.doesNotThrow(()=>assertLiveReleaseAllowed(RELEASE_STATUS.arenaAddress));
+  assert.equal(RELEASE_STATUS.rulesVersion,8);assert.equal(RELEASE_STATUS.artifact,'BeautyArenaV2.json');
+  assert.throws(()=>assertLiveReleaseAllowed('0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5'));
   assert.ok(!RELEASE_STATUS.blockingFindings.includes('SEC-02'));assert.ok(RELEASE_STATUS.acceptedRisks.includes('SEC-02'));
   assert.ok(RELEASE_STATUS.acceptedRisks.includes('CHOG-SOURCE'));
   assert.deepEqual(RELEASE_STATUS.blockingFindings,[]);

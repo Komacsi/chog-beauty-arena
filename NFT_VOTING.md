@@ -1,7 +1,10 @@
 # NFT votes and repeated CHOG bets — protocol 7
 
 Implemented in the contract, automatic keeper, wallet helpers, demo API and UI.
-No live contract is deployed; the release guard remains disabled for real funds.
+This is the historical protocol 7 description. Live V2 now uses protocol 8:
+the two wallets entering a battle cannot vote, while their CHOG bets retain
+payout eligibility without votes. Spectator voting below is unchanged. See
+[ops/PARTICIPANT_RULES.md](ops/PARTICIPANT_RULES.md) for the active deployment.
 
 - Each owned NFT provides one vote without a CHOG bet per battle. Select one
   NFT or any number of eligible NFTs. Different groups may back either contender.

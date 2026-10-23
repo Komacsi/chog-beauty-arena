@@ -23,6 +23,7 @@ const provider=new JsonRpcProvider(connection,143,{batchMaxCount:1,cacheTimeout:
 try{
   const asset=await validateLiveStartup(provider,config.arenaAddress,RELEASE_STATUS.deploymentBlock);
   const arena=new Contract(config.arenaAddress,config.abi,provider);
+  assert.equal(await arena.RULES_VERSION(),8n);assert.equal(config.release.rulesVersion,8);
   const governance=await validateGovernance(provider,await arena.owner());
   const revealer=await arena.revealer();assert.equal(revealer.toLowerCase(),config.revealerAddress.toLowerCase());
   const balance=await provider.getBalance(revealer);assert.ok(balance>=10n**17n);
@@ -35,7 +36,7 @@ try{
   assert.equal((await fetch(new URL('/api/deployment',base))).status,403);
   const walletRounds=await(await get('/api/wallet-rounds?account='+revealer)).json();assert.ok(Array.isArray(walletRounds.ids));
   const drand=await drandClient().get(Math.floor((Date.now()/1000-DRAND_INFO.genesis_time)/DRAND_INFO.period));
-  const result={checkedAt:new Date().toISOString(),base:base.origin,arena:config.arenaAddress,chainId:143,mode:config.mode,realFundsEnabled:true,health,assetBlock:asset.block,governance,keeper:revealer,keeperBalanceMON:formatEther(balance),latestNonce:latest,pendingNonce:pending,index:state.index,ownedNftsFound:owned.length,artworkLoaded:true,drandRound:drand.round,transactionsSigned:0,transactionsSent:0,limitation:'Read-only checks; no human Rabby connection or real trial battle was performed.'};
+  const result={checkedAt:new Date().toISOString(),base:base.origin,arena:config.arenaAddress,chainId:143,rulesVersion:8,mode:config.mode,realFundsEnabled:true,health,assetBlock:asset.block,governance,keeper:revealer,keeperBalanceMON:formatEther(balance),latestNonce:latest,pendingNonce:pending,index:state.index,ownedNftsFound:owned.length,artworkLoaded:true,drandRound:drand.round,transactionsSigned:0,transactionsSent:0,limitation:'Read-only checks; no human Rabby connection or real trial battle was performed.'};
   if(process.argv[3])await writeFile(process.argv[3],JSON.stringify(result,null,2)+'\n',{flag:'wx'});
   console.log(JSON.stringify(result,null,2));
 }finally{provider.destroy();}

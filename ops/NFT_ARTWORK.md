@@ -1,5 +1,10 @@
 # NFT artwork cache
 
+V2 cutover, 23 October 2026: the active cache is a complete separate warm copy at
+`/var/lib/chog-v2-web/nft-cache`; all 1,969 previews were counted after copying and
+public Netlify artwork acceptance passed. Original V1 cache/state remain intact.
+The preparation/history and finite download workflow below remain reproducible.
+
 NFT discovery and eligibility still come directly from the collection contract.
 This display-only cache never changes ownership, voting, deposits or payouts.
 

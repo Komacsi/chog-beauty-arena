@@ -6,6 +6,7 @@ import {monitorArena} from '../lib/monitor.mjs';
 import {keeperHealthAlerts} from '../lib/keeper-health.mjs';
 import {deliverMonitorAlerts} from '../lib/telegram-alerts.mjs';
 import {join} from 'node:path';
+import {RELEASE_STATUS} from '../lib/release.mjs';
 const address=process.env.ARENA_CONTRACT_ADDRESS;
 const connection=new FetchRequest(RPC_URL);connection.timeout=15000;
 const provider=new JsonRpcProvider(connection,undefined,{batchMaxCount:1});
@@ -13,7 +14,7 @@ let result;
 try{
   if(!address)throw Error('Missing arena');
   if(Number((await provider.getNetwork()).chainId)!==CHAIN_ID)throw Error('Wrong network');
-  const {abi}=JSON.parse(await readFile(new URL('../artifacts/BeautyArena.json',import.meta.url),'utf8'));
+  const {abi}=JSON.parse(await readFile(new URL('../artifacts/'+RELEASE_STATUS.artifact,import.meta.url),'utf8'));
   const minimumGas=parseUnits(process.env.KEEPER_MIN_MON || '0.1',18);if(minimumGas<0n)throw Error('Invalid gas alert threshold');
   result=await monitorArena({arena:new Contract(address,abi,provider),provider,validateGovernance,minimumGas,maxRounds:Number(process.env.MONITOR_MAX_ROUNDS || 200),includeRounds:process.env.MONITOR_BATTLES!=='0'});
   if(process.env.KEEPER_HEALTH_PATH)result.alerts.push(...await keeperHealthAlerts(process.env.KEEPER_HEALTH_PATH));

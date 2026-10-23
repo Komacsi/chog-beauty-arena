@@ -1,0 +1,44 @@
+{
+  "checkedAt": "2026-10-23T00:15:30.051Z",
+  "base": "https://chog-beauty-arena.netlify.app",
+  "arena": "0x8Cd36066717FF98D86FebC3294A98aC2f0095d05",
+  "chainId": 143,
+  "rulesVersion": 8,
+  "mode": "live",
+  "realFundsEnabled": true,
+  "health": {
+    "status": "ok",
+    "mode": "live",
+    "keeper": "healthy",
+    "alerts": []
+  },
+  "assetBlock": 115751973,
+  "governance": {
+    "address": "0xa94995D21B5e02eED9472651fe6c4B2a8d6fD47d",
+    "version": "1.5.0",
+    "threshold": 2,
+    "owners": [
+      "0x1bED50dC4d93C8b110589Ae55d25eC8e3872bB0D",
+      "0xbB3e1fD0962676D04B77EFf69c21Fa51692A5338",
+      "0x6084D9f004206E4d548AEA2b694411CC6F07f6e5"
+    ]
+  },
+  "keeper": "0x8e9Ec0de3f9113B5d41e5721B6C0A61d2feE9908",
+  "keeperBalanceMON": "10.0",
+  "latestNonce": 0,
+  "pendingNonce": 0,
+  "index": {
+    "indexedBlock": 115751970,
+    "headBlock": 115751973,
+    "targetBlock": 115751970,
+    "backlogBlocks": 0,
+    "ranges": 1,
+    "reorgReset": false
+  },
+  "ownedNftsFound": 1,
+  "artworkLoaded": true,
+  "drandRound": 33303720,
+  "transactionsSigned": 0,
+  "transactionsSent": 0,
+  "limitation": "Read-only checks; no human Rabby connection or real trial battle was performed."
+}

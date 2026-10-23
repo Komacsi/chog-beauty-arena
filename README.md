@@ -1,8 +1,8 @@
 # Chog: Beauty Arena
 
-Live on Monad: https://chog-beauty-arena.netlify.app. Arena `0xBBEEe440795aCe96F7b6b0D14dc06A5e6A9005d5`, deployment block `115710675`. Keeper and separate live API are running with restart persistence; original demo/history remain separate. See [ops/LIVE.md](ops/LIVE.md) and [security/live-launch.json](security/live-launch.json).
+Live V2 on Monad: https://chog-beauty-arena.netlify.app. Arena `0x8Cd36066717FF98D86FebC3294A98aC2f0095d05`, deployment block `115749283`. Keeper and a separate V2 API/index are running with restart persistence; V1 data and original demos remain separate. See [ops/LIVE.md](ops/LIVE.md) and [security/participant-voting-v2.json](security/participant-voting-v2.json).
 
-24-hour contests between two Chog Genesis NFTs. Each owned NFT gives one vote without a CHOG bet. NFT groups may back different sides. The same wallet may also place multiple CHOG bets; only its first paid bet adds one additional vote. Every bet participates in payouts. Non-holders participate by betting. See [NFT_VOTING.md](NFT_VOTING.md) for protocol 7.
+24-hour contests between two Chog Genesis NFTs. Spectators receive one free vote per owned NFT and one additional vote from their first CHOG bet. NFT groups may back different sides. The two wallets entering a battle cannot vote in that battle; they may place CHOG bets, all without votes and with normal payout eligibility. Roles are fixed at acceptance, even after NFT transfers. Repeated bets participate in payouts without adding votes. See [ops/PARTICIPANT_RULES.md](ops/PARTICIPANT_RULES.md) for protocol 8 and [NFT_VOTING.md](NFT_VOTING.md) for the historical protocol 7.
 
 ## Holder-created battles and profiles
 

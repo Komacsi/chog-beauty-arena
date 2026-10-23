@@ -156,5 +156,7 @@
     "sourceFilesRetained": true,
     "catalogSha256": "c063b0018b4584c0a599909243a1f7b67d1fd107add17795c854ee605b2df21e",
     "keeperAndDemoUnchanged": true
-  }
+  },
+  "currentStatus": "Historical V1 launch; superseded by verified live V2",
+  "supersededBy": "security/participant-voting-v2.json"
 }

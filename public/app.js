@@ -27,7 +27,14 @@ const battleLength=()=>config.mode==='demo' && config.demoFastRounds?'2-minute':
 const contract=()=>new Contract(config.arenaAddress,config.abi,signer);
 async function api(path,body){const r=await fetch('/api/'+path,body===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error);return data;}
 function toast(message){$('#toast').textContent=message;$('#toast').style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').style.display='none',7000);}
-async function run(fn){if(busy)return;busy=true;try{await fn();}catch(e){toast(e.shortMessage || e.message);}finally{try{await refresh();}catch(e){toast(e.shortMessage || e.message);}busy=false;}}
+async function assertCurrentArena(){
+  if(config?.mode!=='live')return;
+  const latest=await api('config');
+  if(latest.mode!==config.mode || !sameAddress(latest.arenaAddress,config.arenaAddress)){
+    clearWallet();location.reload();throw Error('Arena updated. Please reconnect your wallet.');
+  }
+}
+async function run(fn){if(busy)return;busy=true;try{if(address)await assertCurrentArena();await fn();}catch(e){toast(e.shortMessage || e.message);}finally{try{await refresh();}catch(e){toast(e.shortMessage || e.message);}busy=false;}}
 function setWalletMenu(open){
   open=Boolean(open && address && config?.mode==='live');
   $('#wallet-menu').hidden=!open;$('#wallet').setAttribute('aria-expanded',String(open));
@@ -52,6 +59,9 @@ async function refresh(){
   const currentWallet=()=>currentEpoch===walletEpoch && signer===currentSigner && address===currentAddress;
   const selected=new URLSearchParams(location.search).get('round');
   const latest=await api('state?round='+encodeURIComponent(selected || '')+(busy?'&fresh=1':''));
+  if(config.mode==='live' && latest.arenaAddress && !sameAddress(latest.arenaAddress,config.arenaAddress)){
+    clearWallet();location.reload();throw Error('Arena updated. Please reconnect your wallet.');
+  }
   if(!currentWallet())return;state=latest;
   owned=config.mode==='demo'?state.ownedTokens:[];
   if(config.mode==='live' && address){
